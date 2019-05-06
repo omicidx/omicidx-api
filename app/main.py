@@ -2,6 +2,7 @@ from fastapi import (FastAPI,
                      HTTPException,
                      Query,
                      )
+from pydantic import BaseModel, ValidationError, validator
 from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
@@ -15,6 +16,8 @@ async def root():
     return {"message": "Hello World"}
 
 
+
+
 @app.get("/study/{accession}", tags=['SRA study', 'SRA'])
 async def get_study_accession(accession: str ):
     try:
@@ -24,6 +27,9 @@ async def get_study_accession(accession: str ):
             status_code = 404,
             detail = f"Accession {accession} not found."
         )
+
+
+
     
 @app.get("/studies/search", tags=['SRA Study', 'SRA', 'Search'])
 async def search_study(q: str = Query(None,
@@ -38,6 +44,9 @@ async def search_study(q: str = Query(None,
     search = Search(using = es.client)
     resp = search.index('sra_study').query('query_string', query = q).execute()
     return resp[0:size]
+
+
+
 
 @app.get("/sql", tags=["SQL"])
 async def elasticsearch_sql(query: str = Query(..., example = "SELECT * FROM sra_study WHERE QUERY('breast cancer')"),
@@ -62,3 +71,35 @@ async def elasticsearch_sql(query: str = Query(..., example = "SELECT * FROM sra
             
     except elasticsearch.exceptions.TransportError as e:
         return e.info['error'], 400
+
+
+class FullQuery(BaseModel):
+    query: dict
+    aggs: dict = None
+    size: int = 10
+
+    @validator('size')
+    def check_size(cls, v):
+        if(v<0 or v>1000):
+            raise ValueError(f'size {v} is not between 0 and 1000')
+        return v
+
+    
+@app.post("/studies/search/")
+def post_full_es_json(body: FullQuery
+):
+    """Allow full ElasticSearch json
+
+    body : json
+        The full json string passed unchanged to elasticsearch
+    
+    Returns
+    -------
+    The response from elasticsearch, unchanged
+    """
+    entity='study'
+    query_body = {"query":body.query}
+    if(body.aggs is not None):
+        query_body.update({"aggs":body.aggs})
+    resp = es.client.search(index = 'sra_{}'.format(entity), body=query_body, size=body.size)
+    return resp
