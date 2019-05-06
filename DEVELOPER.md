@@ -37,3 +37,12 @@ pytest
 
 Example test file, see `tests/test_app.py`.
 
+## docker
+
+- Docker exposes port 80.
+- **Copies** config.ini into container, *so don't expose container publicly.*
+
+```
+docker build -t seandavi/omicidx_fastapi .
+docker run -p 9080:80 seandavi/omicidx_fastapi
+```
