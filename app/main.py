@@ -6,7 +6,7 @@ from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
 
-app = FastAPI()
+app = FastAPI(title='OmicIDX', version='1.0')
 
 es = ESClient('config.ini')
 
@@ -26,9 +26,13 @@ async def get_study_accession(accession: str ):
         )
     
 @app.get("/studies/search")
-async def search_study(q: str = Query(None),
+async def search_study(q: str = Query(None, description = "The query, using lucene query syntax"),
                        size: int = Query(10, gte=0, lt=1000),
 ):
+    """Search studies
+
+    uses [lucene query string syntax](https://lucene.apache.org/core/2_9_4/queryparsersyntax.html)
+    """
     search = Search(using = es.client)
     resp = search.index('sra_study').query('query_string', query = q).execute()
     return resp[0:size]
