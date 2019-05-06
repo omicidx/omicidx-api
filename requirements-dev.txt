@@ -10,8 +10,6 @@ h11==0.8.1
 httptools==0.0.13
 idna==2.8
 more-itertools==7.0.0
-# Editable Git install with no remote (omicidx-web==0.1)
--e /Users/sdavis2/Documents/git/omicidx_web_fastapi
 pluggy==0.9.0
 py==1.8.0
 pydantic==0.23
