@@ -1,14 +1,27 @@
+atomicwrites==1.3.0
+attrs==19.1.0
 certifi==2019.3.9
+chardet==3.0.4
 Click==7.0
+elasticsearch==7.0.0
+elasticsearch-dsl==7.0.0
 fastapi==0.20.0
 h11==0.8.1
 httptools==0.0.13
+idna==2.8
+more-itertools==7.0.0
+# Editable Git install with no remote (omicidx-web==0.1)
+-e /Users/sdavis2/Documents/git/omicidx_web_fastapi
+pluggy==0.9.0
+py==1.8.0
 pydantic==0.23
+pytest==4.4.1
 python-dateutil==2.8.0
+requests==2.21.0
 six==1.12.0
 starlette==0.11.1
 ujson==1.35
-urllib3==1.25.2
+urllib3==1.24.3
 uvicorn==0.7.1
 uvloop==0.12.2
 websockets==7.0
