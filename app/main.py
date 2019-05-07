@@ -1,6 +1,7 @@
 from fastapi import (FastAPI,
                      HTTPException,
                      Query,
+                     Depends
                      )
 from pydantic import BaseModel, ValidationError, validator
 from .esclient import ESClient
@@ -30,20 +31,37 @@ async def get_study_accession(accession: str ):
 
 
 
-    
-@app.get("/studies/search", tags=['SRA Study', 'SRA', 'Search'])
-async def search_study(q: str = Query(None,
-                                      description = "The query, using lucene query syntax",
-                                      example = "cancer AND breast AND published:[2018 TO 2021]"),
-                       size: int = Query(10, gte = 0, lt = 1000, example = 10),
-):
-    """Search studies
+class CommonQueryParams:
+    def __init__(self,
+                 q: str = Query(
+                     None,
+                     description = "The query, using lucene query syntax",
+                     example = "cancer AND breast AND published:[2018 TO 2021]"),
+                 size: int = Query(10, gte = 0, lt = 1000, example = 10)):
+        self.q = q
+        self.size = size
 
-    uses [lucene query string syntax](https://lucene.apache.org/core/2_9_4/queryparsersyntax.html)
-    """
-    search = Search(using = es.client)
-    resp = search.index('sra_study').query('query_string', query = q).execute()
-    return resp[0:size]
+    def search(self, index):
+        search = Search(using = es.client)
+        resp = search.index(index).query('query_string', query = self.q).execute()
+        return resp[0:self.size]
+
+    
+@app.get("/studies/search", tags=['SRA', 'Search'])
+async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+    return searcher.search('sra_study')
+
+@app.get("/experiments/search", tags=['SRA', 'Search'])
+async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+    return searcher.search('sra_experiment')
+
+@app.get("/runs/search", tags=['SRA', 'Search'])
+async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+    return searcher.search('sra_run')
+
+@app.get("/samples/search", tags=['SRA', 'Search'])
+async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+    return searcher.search('sra_sample')
 
 
 
