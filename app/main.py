@@ -103,13 +103,74 @@ async def elasticsearch_sql(
                                          'sets larger than `size`.'),
                           )
 ):
-    """Use elasticsearch sql to get results
+    """Use Elasticsearch SQL to get results.
+
+    Elasticsearch SQL has some limitations relative to regular relational
+    databases, but it can still be useful. In particular, there are no
+    "joins" available in Elasticsearch SQL.
 
     See: 
       - [elasticsearch SQL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-syntax-select.html)
       - [An Introduction to Elasticsearch SQL with Practical Examples - Part 1](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-1)
       - [An Introduction to Elasticsearch SQL with Practical Examples - Part 2](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-2)
       - [Elasticsearch functions and operators](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-functions.html)
+
+    ## Example queries
+
+    These example queries can be pasted into the `query` field on 
+    the online docs or can be used in the `query` field from a
+    client. Note that it may be beneficial to change the default
+    `size` field to a larger value (up to the maximum). For `GROUP BY`
+    queries, there is an intrinsic limit of 512 records, so specifying
+    `LIMIT` greater than 512 will result in errors.
+
+    Select all top-level fields from sra studies. Note that the
+    result will include a `cursor` field. Supply the `cursor` string
+    to the cursor field and rerun the query to get the next batch
+    of results.
+
+    ```
+    select * from sra_study
+    ```
+
+    Get a count of the visibility (open, controlled access, etc.) from all studies.
+
+    ```
+    select visibility, count(*) 
+    from sra_study 
+    group by visibility
+    ```
+    
+    Get a count of the number of studies publised by month.
+
+    ```
+    select MONTH(published) as month,
+           YEAR(published) as year,
+           count(*)
+    from sra_study 
+    group by month, year
+    order by year desc, month desc
+    ```
+    Perform a full text search on experiments and get a count of records.
+
+    ```
+    select count(*) as experiment_count
+    from sra_experiment
+    where QUERY('cancer')
+    ```
+
+    And get a count of the library_strategies associated with those
+    experiments.
+
+    ```
+    select count(*) as experiment_count, library_strategy
+    from sra_experiment
+    where QUERY('cancer')
+    group by library_strategy
+    order by experiment_count desc
+    limit 100
+    ```
+
     """
     try:
         if(cursor is not None):
