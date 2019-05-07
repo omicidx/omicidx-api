@@ -1,7 +1,8 @@
 from fastapi import (FastAPI,
                      HTTPException,
                      Query,
-                     Depends
+                     Depends,
+                     Path
                      )
 from pydantic import BaseModel, ValidationError, validator
 from typing import List
@@ -19,16 +20,39 @@ async def root():
 
 
 
+class GetByAccession():
+    def __init__(self,
+                 accession: str = Path(
+                     ...,
+                     description = "An accession for lookup"
+                 )):
+        self.accession = accession
 
-@app.get("/study/{accession}", tags=['SRA study', 'SRA'])
-async def get_study_accession(accession: str ):
-    try:
-        return es.client.get(index="sra_study", doc_type="doc", id=accession)
-    except elasticsearch.exceptions.NotFoundError as e:
-        raise HTTPException(
-            status_code = 404,
-            detail = f"Accession {accession} not found."
-        )
+    def get(self, index, doc_type="doc"):
+        try:
+            return es.client.get(index=index, doc_type=doc_type, id=self.accession)
+        except elasticsearch.exceptions.NotFoundError as e:
+            raise HTTPException(
+                status_code = 404,
+                detail = f"Accession {self.accession} not found in index {index}."
+            )
+        
+
+@app.get("/study/{accession}", tags=['SRA'])
+async def get_study_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_study')
+
+@app.get("/sample/{accession}", tags=['SRA'])
+async def get_sample_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_sample')
+
+@app.get("/experiment/{accession}", tags=['SRA'])
+async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_experiment')
+
+@app.get("/run/{accession}", tags=['SRA'])
+async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_run')
 
 
 
