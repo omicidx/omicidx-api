@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omicidx-fastapi
+  labels:
+    app: omicidx-fastapi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: omicidx-fastapi
+  template:
+    metadata:
+      labels:
+        app: omicidx-fastapi
+    spec:
+      containers:
+      - name: omicidx-fastapi
+        image: 377200973048.dkr.ecr.us-east-1.amazonaws.com/omicidx-fastapi
+        ports:
+        - containerPort: 80
