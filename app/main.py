@@ -31,7 +31,7 @@ async def get_study_accession(accession: str ):
 
 
 
-class CommonQueryParams:
+class SimpleQueryStringSearch():
     def __init__(self,
                  q: str = Query(
                      None,
@@ -48,28 +48,41 @@ class CommonQueryParams:
 
     
 @app.get("/studies/search", tags=['SRA', 'Search'])
-async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+async def search_studies(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_study')
 
 @app.get("/experiments/search", tags=['SRA', 'Search'])
-async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+async def search_experiments(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_experiment')
 
 @app.get("/runs/search", tags=['SRA', 'Search'])
-async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+async def search_runs(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_run')
 
 @app.get("/samples/search", tags=['SRA', 'Search'])
-async def search_study(searcher: CommonQueryParams = Depends(CommonQueryParams)):
+async def search_samples(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_sample')
 
 
 
 
 @app.get("/sql", tags=["SQL"])
-async def elasticsearch_sql(query: str = Query(..., example = "SELECT * FROM sra_study WHERE QUERY('breast cancer')"),
-                            cursor: str = None,
-                            size: int = Query(500, gte=0, lt=1000, example = 10),
+async def elasticsearch_sql(
+        query: str = Query(...,
+                           example = "SELECT * FROM sra_study WHERE QUERY('breast cancer')",
+                           description = ('And Elasticsearch SQL query. See the '
+                                          'endpoint description for more details.'),
+        ),
+        cursor: str = Query(None,
+                            description = ('The cursor returned by a large result '
+                                           'set can be used here to fetch the next '
+                                           'set of results.'),),
+        size: int = Query(500, gte=0, lt=1000, example = 10,
+                          description = ('The size of the result set to return. '
+                                         'Minimum: 0, maximum: 1000. Use the '
+                                         '`cursor` functionality to loop over result '
+                                         'sets larger than `size`.'),
+                          )
 ):
     """Use elasticsearch sql to get results
 
