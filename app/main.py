@@ -4,6 +4,7 @@ from fastapi import (FastAPI,
                      Depends
                      )
 from pydantic import BaseModel, ValidationError, validator
+from typing import List
 from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
@@ -37,14 +38,32 @@ class SimpleQueryStringSearch():
                      None,
                      description = "The query, using lucene query syntax",
                      example = "cancer AND breast AND published:[2018 TO 2021]"),
-                 size: int = Query(10, gte = 0, lt = 1000, example = 10)):
+                 size: int = Query(10, gte = 0, lt = 1000, example = 10),
+                 facets: List[str] = Query(
+                     [],
+                     description = ('A list of strings identifying fields '
+                                    'for faceted search results. Simple '
+                                    'term faceting is used here, meaning '
+                                    'that fields that are short text and repeated '
+                                    'across records will be binned and counted.'),
+                     example = ['center_name.keyword'],
+                     )
+    ):
         self.q = q
         self.size = size
+        self.facets = facets
 
     def search(self, index):
         search = Search(using = es.client)
-        resp = search.index(index).query('query_string', query = self.q).execute()
-        return resp[0:self.size]
+        s = search.index(index).query('query_string', query = self.q)
+        for agg in self.facets:
+            # these update the s object in place
+            # as opposed to the query method(s) that
+            # return a new copied object
+            s.aggs.bucket(agg,'terms',field=agg)
+        resp = s.execute()
+        return {"hits": [res for res in resp[0:self.size]],
+                "facets": resp.aggs.to_dict()}
 
     
 @app.get("/studies/search", tags=['SRA', 'Search'])
