@@ -260,14 +260,26 @@ class ExtendedSearch(BaseModel):
 
         returns the raw elasticsearch response.
         """
-        query_body={}
         body_dict = self.dict()
-        print(body_dict)
-        for k in body_dict:
-            if(body_dict[k] is not None):
-                query_body[k] = body_dict[k]
-        print(query_body)
-        resp = es.client.search(index = index, body=query_body)
+        
+        # need to clean up defaults
+        if(len(body_dict['aggs'])==0):
+            del(body_dict['aggs'])
+
+        if(len(body_dict['search_after'])==0):
+            del(body_dict['search_after'])
+
+        if(len(body_dict['sort'])==1):
+            if(len(body_dict['sort'][0])==0):
+                del(body_dict['sort'])
+
+        if(len(body_dict['filter'])==0):
+            del(body_dict['filter'])
+
+        # and perform the search
+        resp = es.client.search(index = index, body=body_dict)
+
+        # returns raw elasticsearch response
         return resp
 
 
