@@ -1,11 +1,17 @@
-from fastapi import (FastAPI,
-                     HTTPException,
-                     Query,
-                     Depends,
-                     Path
-                     )
-from pydantic import BaseModel, ValidationError, validator
-from typing import List
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Depends,
+    Path
+)
+from pydantic import (
+    BaseModel,
+    ValidationError,
+    validator,
+    Schema
+)
+from typing import List, Any
 from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
@@ -208,33 +214,84 @@ async def elasticsearch_sql(
         return e.info['error'], 400
 
 
-class FullQuery(BaseModel):
-    query: dict
-    aggs: dict = None
-    size: int = 10
+class ExtendedSearch(BaseModel):
+    """This encapsulates all the pieces of an 
+    extendedQuery. The only required field is 
+    the `query` field.
+    """
+    query: dict = Schema(...)
+    aggs: dict = Schema(
+        {},
+        description = "Aggregates"
+    )
+    size: int = Schema(
+        10,
+        description = ('The maximum number of records to return'),
+        gte = 0,
+        lte = 1000
+    )
+    filter: dict = Schema(
+        {},
+        description = "Filters"
+    )
+    search_after: List[Any] = Schema(
+        [],
+        description = "search_after functionality"
+    )
+    sort: List[dict] = Schema(
+        [{}],
+        description = "sort by"
+    )
 
     @validator('size')
     def check_size(cls, v):
         if(v<0 or v>1000):
-            raise ValueError(f'size {v} is not between 0 and 1000')
+            raise ValueError(f'size {v} must be between 0 and 1000. '
+                             'For large result sets, use search_after '
+                             'and cursor functionality.' 
+            )
         return v
 
-    
-@app.post("/studies/search/")
-def post_full_es_json(body: FullQuery
-):
-    """Allow full ElasticSearch json
+    def do_search(self, index):
+        """do a full elasticsearch search
 
-    body : json
-        The full json string passed unchanged to elasticsearch
+        index: str 
+            the elasticsearch index
+
+        returns the raw elasticsearch response.
+        """
+        query_body={}
+        body_dict = self.dict()
+        print(body_dict)
+        for k in body_dict:
+            if(body_dict[k] is not None):
+                query_body[k] = body_dict[k]
+        print(query_body)
+        resp = es.client.search(index = index, body=query_body)
+        return resp
+
+
     
-    Returns
-    -------
-    The response from elasticsearch, unchanged
-    """
-    entity='study'
-    query_body = {"query":body.query}
-    if(body.aggs is not None):
-        query_body.update({"aggs":body.aggs})
-    resp = es.client.search(index = 'sra_{}'.format(entity), body=query_body, size=body.size)
-    return resp
+@app.post("/studies/extendedSearch")
+def extended_study_search(
+        body: ExtendedSearch
+):
+    return body.do_search('sra_study')
+
+@app.post("/samples/extendedSearch")
+def extended_samples_search(
+        body: ExtendedSearch
+):
+    return body.do_search('sra_sample')
+
+@app.post("/experiments/extendedSearch")
+def extended_experiment_search(
+        body: ExtendedSearch
+):
+    return body.do_search('sra_experiment')
+
+@app.post("/runs/extendedSearch")
+def extended_study_search(
+        body: ExtendedSearch
+):
+    return body.do_search('sra_run')
