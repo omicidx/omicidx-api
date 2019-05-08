@@ -243,14 +243,6 @@ class ExtendedSearch(BaseModel):
         description = "sort by"
     )
 
-    @validator('size')
-    def check_size(cls, v):
-        if(v<0 or v>1000):
-            raise ValueError(f'size {v} must be between 0 and 1000. '
-                             'For large result sets, use search_after '
-                             'and cursor functionality.' 
-            )
-        return v
 
     def do_search(self, index):
         """do a full elasticsearch search
