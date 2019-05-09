@@ -227,7 +227,10 @@ class ExtendedSearch(BaseModel):
     extendedQuery. The only required field is 
     the `query` field.
     """
-    query: dict = Schema(...)
+    query: dict = Schema(
+        ...,
+        example = {"query_string": {"query": "cancer"}}
+    )
     aggs: dict = Schema(
         {},
         description = "Aggregates"
@@ -236,7 +239,8 @@ class ExtendedSearch(BaseModel):
         10,
         description = ('The maximum number of records to return'),
         gte = 0,
-        lte = 1000
+        lte = 1000,
+        example = 10
     )
     filter: dict = Schema(
         {},
@@ -244,11 +248,13 @@ class ExtendedSearch(BaseModel):
     )
     search_after: List[Any] = Schema(
         [],
-        description = "search_after functionality"
+        description = "search_after functionality",
+        example = []
     )
     sort: List[dict] = Schema(
-        [{}],
-        description = "sort by"
+        [{"_id":"asc"}],
+        description = "sort by",
+        example = [{"_id":"asc"}],
     )
 
 
@@ -266,17 +272,17 @@ class ExtendedSearch(BaseModel):
         if(len(body_dict['aggs'])==0):
             del(body_dict['aggs'])
 
-        if(len(body_dict['search_after'])==0):
-            del(body_dict['search_after'])
+        if(len(body_dict['search_after'])==1):
+            if(body_dict['search_after'][0] is None):
+                del(body_dict['search_after'])
 
         if(len(body_dict['sort'])==1):
-            if(len(body_dict['sort'][0])==0):
-                del(body_dict['sort'])
+            if(body_dict['sort'][0]=={}):
+                body_dict['sort']=[{'_id':'asc'}]
 
         if(len(body_dict['filter'])==0):
             del(body_dict['filter'])
 
-        # and perform the search
         resp = es.client.search(index = index, body=body_dict)
 
         # returns raw elasticsearch response
