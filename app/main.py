@@ -11,6 +11,9 @@ from pydantic import (
     validator,
     Schema
 )
+from starlette.responses import RedirectResponse
+from starlette.endpoints import HTTPEndpoint
+from starlette.requests import Request
 from typing import List, Any
 from .esclient import ESClient
 from elasticsearch_dsl import Search
@@ -20,9 +23,12 @@ app = FastAPI(title='OmicIDX', version='1.0')
 
 es = ESClient('config.ini')
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+
+
+# for now, redirect to the docs directly
+@app.route("/")
+async def home(request: Request):
+    return RedirectResponse(url='/docs')
 
 
 
@@ -63,6 +69,8 @@ async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
 
 
 class SimpleQueryStringSearch():
+    """Basic lucene query string search
+    """
     def __init__(self,
                  q: str = Query(
                      None,
@@ -135,8 +143,8 @@ async def elasticsearch_sql(
 ):
     """Use Elasticsearch SQL to get results.
 
-    Elasticsearch SQL has some limitations relative to regular relational
-    databases, but it can still be useful. In particular, there are no
+    Elasticsearch SQL has some [limitations](https://www.elastic.co/guide/en/elasticsearch/reference/7.0/sql-limitations.html) relative to regular relational
+    databases. In particular, there are no
     "joins" available in Elasticsearch SQL.
 
     See: 
