@@ -19,7 +19,48 @@ from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
 
-app = FastAPI(title='OmicIDX', version='1.0')
+app = FastAPI(
+    title='OmicIDX',
+    version='1.0',
+    description = """
+
+## What is this?
+
+This is the OmicIDX API for accessing and analyzing omics metadata.
+
+## Background
+
+The practice of Data Science often starts with finding, extracting,
+and organizing the data into systems that are fit for purpose. With
+the growth of genomics data resources, there are opportunities for
+large scale data reuse. Furthermore, the corpus of so-called
+"metadata" that detail the biological materials, experimental
+variables, and protocols and methods is now a large and rich dataset
+itself.
+
+## OmicIDX
+
+The OmicIDX project collects disparate metadata from public genomics
+data repositories and transforms it into several forms that render it
+fit-for-purpose for large-scale and granular processing. Tasks such as
+indexing and searching, metadata enrichment with ontologies, and
+natural language processing all benefit from data resources that are
+available in bulk and computable formats.
+
+
+## What is an API 
+
+A web-based Application Programming Interface (API) uses the same
+technology as your browser. However, rather than you directing your
+browser to access information, an API is typically accessed by another
+piece of sofware. This software sends a request to the API (just a
+webserver running somewhere) in a format that the server will
+understand. The server then processes the request and returns a
+result, typically not in the form that is meant to be viewed on the
+screen but instead in a format that computers (and often humans) can
+read.
+"""
+)
 
 es = ESClient('config.ini')
 
@@ -292,25 +333,25 @@ class ExtendedSearch(BaseModel):
 
 
     
-@app.post("/studies/extendedSearch")
+@app.post("/studies/extendedSearch", tags=["SRA", "Search"])
 def extended_study_search(
         body: ExtendedSearch
 ):
     return body.do_search('sra_study')
 
-@app.post("/samples/extendedSearch")
+@app.post("/samples/extendedSearch", tags=["SRA", "Search"])
 def extended_samples_search(
         body: ExtendedSearch
 ):
     return body.do_search('sra_sample')
 
-@app.post("/experiments/extendedSearch")
+@app.post("/experiments/extendedSearch", tags=["SRA", "Search"])
 def extended_experiment_search(
         body: ExtendedSearch
 ):
     return body.do_search('sra_experiment')
 
-@app.post("/runs/extendedSearch")
+@app.post("/runs/extendedSearch", tags=["SRA", "Search"])
 def extended_study_search(
         body: ExtendedSearch
 ):
