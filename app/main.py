@@ -272,7 +272,9 @@ class ExtendedSearch(BaseModel):
         if(len(body_dict['aggs'])==0):
             del(body_dict['aggs'])
 
-        if(len(body_dict['search_after'])==1):
+        if(len(body_dict['search_after'])==0):
+            del(body_dict['search_after'])
+        elif(len(body_dict['search_after'])==1):
             if(body_dict['search_after'][0] is None):
                 del(body_dict['search_after'])
 
