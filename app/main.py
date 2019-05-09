@@ -130,19 +130,24 @@ class SimpleQueryStringSearch():
     ):
         self.q = q
         self.size = size
+        print(size)
         self.facets = facets
 
     def search(self, index):
         search = Search(using = es.client)
-        s = search.index(index).query('query_string', query = self.q)
+        s = search.index(index).query('query_string', query = self.q)[0:self.size]
         for agg in self.facets:
             # these update the s object in place
             # as opposed to the query method(s) that
             # return a new copied object
             s.aggs.bucket(agg,'terms',field=agg)
         resp = s.execute()
-        return {"hits": [res for res in resp[0:self.size]],
-                "facets": resp.aggs.to_dict()}
+        return {"hits": [res for res in resp],
+                "facets": resp.aggs.to_dict(),
+                "stats": {"total": resp.hits.total,
+                          "took": resp.took},
+                "success": resp.success()
+        }
 
     
 @app.get("/studies/search", tags=['SRA', 'Search'])
