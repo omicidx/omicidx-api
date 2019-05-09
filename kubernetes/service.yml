@@ -1,12 +1,12 @@
-apiVersion: v1
 kind: Service
+apiVersion: v1
 metadata:
-  name: omicidx-fastapi
-  labels:
-    service: omicidx-fastapi
+  name: omicidx-api-service
 spec:
+  type: LoadBalancer
   selector:
     app: omicidx-fastapi
   ports:
-  - port: 5000
+  - protocol: TCP
+    port: 80
     targetPort: 80
