@@ -6,7 +6,7 @@ class ESClient():
     def __init__(self, configfile):
         self.client = self._get_client(configfile)
     
-    def _get_client(self, configfile):
+    def _get_client(self, configfile) -> Elasticsearch:
         """Get an elasticsearch client
 
         :param: configfile 
