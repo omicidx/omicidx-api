@@ -19,6 +19,9 @@ from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
 
+from starlette.middleware.cors import CORSMiddleware
+
+
 app = FastAPI(
     title='OmicIDX',
     version='1.0',
@@ -64,6 +67,14 @@ read.
 
 es = ESClient('config.ini')
 
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # for now, redirect to the docs directly
@@ -130,7 +141,6 @@ class SimpleQueryStringSearch():
     ):
         self.q = q
         self.size = size
-        print(size)
         self.facets = facets
 
     def search(self, index):
@@ -271,7 +281,9 @@ async def elasticsearch_sql(
 class ExtendedSearch(BaseModel):
     """This encapsulates all the pieces of an 
     extendedQuery. The only required field is 
-    the `query` field.
+    the `query` field. See [the Elasticsearch query 
+    DSL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html)
+    for how to construct a query. 
     """
     query: dict = Schema(
         ...,
