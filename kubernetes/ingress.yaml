@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-omicidx-test
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: omicidx-test.cancerdatasci.org
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: omicidx-fastapi
+          servicePort: 80
