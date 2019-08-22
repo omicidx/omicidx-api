@@ -82,7 +82,7 @@ app.add_middleware(
 async def home(request: Request):
     return RedirectResponse(url='/docs')
 
-
+import omicidx.sra.pydantic_models as p
 
 class GetByAccession():
     def __init__(self,
@@ -92,9 +92,9 @@ class GetByAccession():
                  )):
         self.accession = accession
 
-    def get(self, index, doc_type="doc"):
+    def get(self, index, doc_type="_doc"):
         try:
-            return es.client.get(index=index, doc_type=doc_type, id=self.accession)
+            return es.client.get(index=index, doc_type=doc_type, id=self.accession)['_source']
         except elasticsearch.exceptions.NotFoundError as e:
             raise HTTPException(
                 status_code = 404,
@@ -102,22 +102,32 @@ class GetByAccession():
             )
         
 
-@app.get("/study/{accession}", tags=['SRA'])
+@app.get("/study/{accession}", tags=['SRA'], response_model = p.SraStudy)
 async def get_study_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_study')
 
-@app.get("/sample/{accession}", tags=['SRA'])
+@app.get("/sample/{accession}", tags=['SRA'], response_model = p.SraSample)
 async def get_sample_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_sample')
 
-@app.get("/experiment/{accession}", tags=['SRA'])
+@app.get("/experiment/{accession}", tags=['SRA'], response_model = p.SraExperiment)
 async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_experiment')
 
-@app.get("/run/{accession}", tags=['SRA'])
+@app.get("/run/{accession}", tags=['SRA'], response_model = p.SraRun)
 async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_run')
 
+
+@app.get("/run2/{accession}", tags=['SRA'], response_model = p.SraRun)
+async def get_run_accession_from_pg(accession: str):
+    import sqlalchemy as sa
+    from sqlalchemy.sql import text
+    engine = sa.create_engine('postgresql://sdavis2@localhost/sdavis2')
+    con = engine.connect()
+    stmt = text("select json from json_table where accession = :accession")
+    res = con.execute(stmt, {"accession": accession})
+    return p.SraRun(**res.fetchone()['json'])
 
 
 class SimpleQueryStringSearch():
@@ -310,7 +320,7 @@ class ExtendedSearch(BaseModel):
         example = []
     )
     sort: List[dict] = Schema(
-        [{"_id":"asc"}],
+        [{"_score":"desc"}],
         description = "sort by",
         example = [{"_id":"asc"}],
     )
