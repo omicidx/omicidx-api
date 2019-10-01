@@ -14,10 +14,13 @@ from pydantic import (
 from starlette.responses import RedirectResponse
 from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
+from starlette.graphql import GraphQLApp
 from typing import List, Any
 from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
+
+from .schema import schema
 
 from starlette.middleware.cors import CORSMiddleware
 
@@ -76,6 +79,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_route('/graphql', GraphQLApp(schema=schema))
+
 
 # for now, redirect to the docs directly
 @app.route("/")
@@ -110,13 +115,46 @@ async def get_study_accession(getter: GetByAccession = Depends(GetByAccession)):
 async def get_sample_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_sample')
 
-@app.get("/experiment/{accession}", tags=['SRA'], response_model = p.SraExperiment)
-async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_experiment')
-
 @app.get("/run/{accession}", tags=['SRA'], response_model = p.SraRun)
 async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_run')
+
+
+from pydantic import Schema, create_model
+import pydantic
+from typing import Dict, List
+import datetime
+
+m = list(es.client.indices.get_mapping('sra_experiment').values())[0]['mappings']['properties']
+
+def mappings(x):
+    z = {}
+    c = {}
+    for k in x.keys():
+        if('type' in x[k]):
+            if(x[k]['type'] == 'text'):
+                z[k] = (str, Schema(None,title=k, description=f'this is the {k} field'))
+            if(x[k]['type'] == 'boolean'):
+                z[k] = (bool, Schema(None,title=k, description=f'this is the {k} field'))
+            if(x[k]['type'] == 'date'):
+                z[k] = (str, Schema(None,title=k, description=f'this is the {k} field'))
+            if(x[k]['type'] == 'long'):
+                z[k] = (int, Schema(None,title=k, description=f'this is the {k} field'))
+            if(x[k]['type'] == 'float'):
+                z[k] = (float, Schema(None,title=k, description=f'this is the {k} field'))
+            if(x[k]['type'] == 'nested'):
+                c[k.title()] = create_model(k.title()+'Record', **mappings(x[k]['properties']))
+                z[k] = (List[c[k.title()]],[])
+        # if('properties' in x[k]):
+        #     locals()[k.title()] = create_model(k.title()+'Record', **mappings(x[k]['properties']))
+        #     z[k] = (locals()[k.title()]],{})
+            
+    return(z)
+
+@app.get("/experiment/{accession}", tags=['SRA'], response_model = create_model('Experiment1',**mappings(m)))
+async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_experiment')
+
 
 
 @app.get("/run2/{accession}", tags=['SRA'], response_model = p.SraRun)
@@ -383,3 +421,19 @@ def extended_study_search(
         body: ExtendedSearch
 ):
     return body.do_search('sra_run')
+
+
+def abc(mappings):
+    print(mappings)
+    fields = []
+    for k, v in mappings.items():
+        keyword = False
+        if('fields' in v):
+            if('keyword' in v['fields']):
+                keyword=True
+        fields.append((k, v['type'], keyword))
+    return fields
+
+@app.get("/_mapping")
+def mapping():
+    return(list(es.client.indices.get_mapping('sra_experiment').values())[0]['mappings']['properties'])
