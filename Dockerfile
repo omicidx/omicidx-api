@@ -4,10 +4,10 @@ COPY requirements-dev.txt requirements-dev.txt
 
 RUN pip install -r requirements-dev.txt
 
-EXPOSE 80
+EXPOSE $PORT
 
 COPY config.ini config.ini
 
 COPY ./app /app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port $PORT
