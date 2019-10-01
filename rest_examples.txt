@@ -131,3 +131,28 @@ content-type: "application/json"
     }
   }	    
 }
+
+#
+POST :host::port/experiments/extendedSearch
+content-type: "application/json"
+{
+  "query": {
+  },
+  "size": 0,
+  "aggs": {
+    "library_strategy" : {
+      "terms": {"field": "library_strategy.keyword"}
+    },
+    "by_month": {
+      "date_histogram" : {
+         "field" : "published",
+         "calendar_interval" : "month"
+       }
+    }
+  }	    
+}
+
+
+
+#
+GET :host::port/_mapping
