@@ -6,3 +6,5 @@ virt*
 config.ini
 *.egg-info
 /build_and_push.sh
+.venv
+virt-dev
