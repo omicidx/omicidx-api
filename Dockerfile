@@ -1,8 +1,11 @@
 FROM python:3.7
 
-COPY requirements-dev.txt requirements-dev.txt
+COPY pyproject.toml pyproject.toml
+COPY poetry.lock poetry.lock
 
-RUN pip install -r requirements-dev.txt
+RUN pip install poetry
+RUN poetry config settings.virtualenvs.create false
+RUN poetry install
 
 EXPOSE $PORT
 
