@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: omicidx-fastapi
-        image: 377200973048.dkr.ecr.us-east-1.amazonaws.com/omicidx-fastapi
+        image: gcr.io/isb-cgc-01-0006/omicidx-fastapi
         ports:
         - containerPort: 80
