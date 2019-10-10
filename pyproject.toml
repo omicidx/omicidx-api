@@ -8,6 +8,11 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.7"
 graphene = "^2.1"
+fastapi = "^0.42.0"
+elasticsearch = "^7.0.5"
+elasticsearch_dsl = "^7.0.0"
+graphene_elastic = "^0.5"
+omicidx = { git = "git@gitlab.com:seandavi/omicidx.git", branch = "master" }
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.8"
