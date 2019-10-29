@@ -8,6 +8,7 @@ from .esclient import ESClient
 from .mappings_stuff import FilterInputType
 import app.mappings_stuff
 
+SRA_STUDY_IDX = 'sra_study-zq'
 
 ##############
 # Not used   #
@@ -150,7 +151,7 @@ typemap = {'SRAStudyType':'sra_study',
            'SRASampleType':'sra_sample1',
            'BiosampleType':'biosample'}
 
-SRAStudyType = createType('SRAStudyType', 'sra_study')
+SRAStudyType = createType('SRAStudyType', SRA_STUDY_IDX)
 SRASampleType = createType('SRASampleType', 'sra_sample')
 BiosampleType = createType('BiosampleType', 'biosample')
 SRASampleType2 = createType2('SRASampleType2', 'sra_sample')
@@ -197,7 +198,6 @@ class matchtype(graphene.InputObjectType):
     fields = graphene.List(enumtest)
 
 
-
 def gen_input_field(cls, index):
     def resolver(
             parent, info,
@@ -206,7 +206,7 @@ def gen_input_field(cls, index):
             sort: typing.List[str] = ['_score','accession.keyword'],
             aggs: typing.List[str] = []) -> object:
         body = {
-            "sort": sort,
+            "sort": [s + '.keyword' for s in sort],
             "query":{
                 "query_string":{
                     "query": q,
@@ -256,6 +256,8 @@ class Query(graphene.ObjectType):
     description = 'query the omicidx'
 
     node = graphene.relay.Node.Field()
+
+    
     sqlQuery = graphene.Field(
         graphene.String,
         query = graphene.String(
@@ -267,14 +269,16 @@ class Query(graphene.ObjectType):
         graphene.JSONString,
         query = graphene.String(
             description="elasticsearch sql query"))
-    sraStudyQuery = gen_input_field(SRAStudyType, 'sra_study')
+    sraStudyQuery = gen_input_field(SRAStudyType, SRA_STUDY_IDX)
     biosampleQuery = gen_input_field(BiosampleType, 'biosample')
     sraSampleQuery = gen_input_field(SRASampleType, 'sra_sample')
     sraRunQuery = gen_input_field(SRARunType, 'sra_run')
     sraExperimentQuery = gen_input_field(SRAExperimentType, 'sra_experiment')
+
+
     all_runs = IterableConnectionField2(SRARunConnection)
 
-    sraStudy = gen_get_by_accession(SRAStudyType, 'sra_study')
+    sraStudy = gen_get_by_accession(SRAStudyType, SRA_STUDY_IDX)
     sraSample = gen_get_by_accession(SRASampleType, 'sra_sample')
     sraExperiment = gen_get_by_accession(SRAExperimentType, 'sra_experiment')
     sraRun = gen_get_by_accession(SRARunType, 'sra_run')
