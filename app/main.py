@@ -65,7 +65,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from .schema import schema
+from .schema.schema import schema
 app.add_route('/graphql', GraphQLApp(schema=schema))
 
 
