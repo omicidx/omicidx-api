@@ -1,16 +1,5 @@
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Query,
-    Depends,
-    Path
-)
-from pydantic import (
-    BaseModel,
-    ValidationError,
-    validator,
-    Schema
-)
+from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
+from pydantic import (BaseModel, ValidationError, validator, Schema)
 from starlette.responses import RedirectResponse
 from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
@@ -24,11 +13,9 @@ import elasticsearch
 
 from starlette.middleware.cors import CORSMiddleware
 
-
-app = FastAPI(
-    title='OmicIDX',
-    version='1.0',
-    description = """
+app = FastAPI(title='OmicIDX',
+              version='1.0',
+              description="""
 
 ## What is this?
 
@@ -65,8 +52,7 @@ understand. The server then processes the request and returns a
 result, typically not in the form that is meant to be viewed on the
 screen but instead in a format that computers (and often humans) can
 read.
-"""
-)
+""")
 
 es = ESClient('config.ini')
 
@@ -88,35 +74,41 @@ app.add_route('/graphql', GraphQLApp(schema=schema))
 async def home(request: Request):
     return RedirectResponse(url='/docs')
 
+
 import omicidx.sra.pydantic_models as p
+
 
 class GetByAccession():
     def __init__(self,
-                 accession: str = Path(
-                     ...,
-                     description = "An accession for lookup"
-                 )):
+                 accession: str = Path(...,
+                                       description="An accession for lookup")):
         self.accession = accession
 
     def get(self, index, doc_type="_doc"):
         try:
-            return es.client.get(index=index, doc_type=doc_type, id=self.accession)['_source']
+            return es.client.get(index=index,
+                                 doc_type=doc_type,
+                                 id=self.accession)['_source']
         except elasticsearch.exceptions.NotFoundError as e:
             raise HTTPException(
-                status_code = 404,
-                detail = f"Accession {self.accession} not found in index {index}."
+                status_code=404,
+                detail=f"Accession {self.accession} not found in index {index}."
             )
-        
 
-@app.get("/study/{accession}", tags=['SRA'], response_model = p.SraStudy)
-async def get_study_accession(getter: GetByAccession = Depends(GetByAccession)):
+
+@app.get("/study/{accession}", tags=['SRA'], response_model=p.SraStudy)
+async def get_study_accession(
+        getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_study')
 
-@app.get("/sample/{accession}", tags=['SRA'], response_model = p.SraSample)
-async def get_sample_accession(getter: GetByAccession = Depends(GetByAccession)):
+
+@app.get("/sample/{accession}", tags=['SRA'], response_model=p.SraSample)
+async def get_sample_accession(
+        getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_sample')
 
-@app.get("/run/{accession}", tags=['SRA'], response_model = p.SraRun)
+
+@app.get("/run/{accession}", tags=['SRA'], response_model=p.SraRun)
 async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_run')
 
@@ -126,39 +118,60 @@ import pydantic
 from typing import Dict, List
 import datetime
 
-m = list(es.client.indices.get_mapping('sra_experiment').values())[0]['mappings']['properties']
+m = list(es.client.indices.get_mapping(
+    'sra_experiment').values())[0]['mappings']['properties']
+
 
 def mappings(x):
     z = {}
     c = {}
     for k in x.keys():
-        if('type' in x[k]):
-            if(x[k]['type'] == 'text'):
-                z[k] = (str, Schema(None,title=k, description=f'this is the {k} field'))
-            if(x[k]['type'] == 'boolean'):
-                z[k] = (bool, Schema(None,title=k, description=f'this is the {k} field'))
-            if(x[k]['type'] == 'date'):
-                z[k] = (str, Schema(None,title=k, description=f'this is the {k} field'))
-            if(x[k]['type'] == 'long'):
-                z[k] = (int, Schema(None,title=k, description=f'this is the {k} field'))
-            if(x[k]['type'] == 'float'):
-                z[k] = (float, Schema(None,title=k, description=f'this is the {k} field'))
-            if(x[k]['type'] == 'nested'):
-                c[k.title()] = create_model(k.title()+'Record', **mappings(x[k]['properties']))
-                z[k] = (List[c[k.title()]],[])
+        if ('type' in x[k]):
+            if (x[k]['type'] == 'text'):
+                z[k] = (str,
+                        Schema(None,
+                               title=k,
+                               description=f'this is the {k} field'))
+            if (x[k]['type'] == 'boolean'):
+                z[k] = (bool,
+                        Schema(None,
+                               title=k,
+                               description=f'this is the {k} field'))
+            if (x[k]['type'] == 'date'):
+                z[k] = (str,
+                        Schema(None,
+                               title=k,
+                               description=f'this is the {k} field'))
+            if (x[k]['type'] == 'long'):
+                z[k] = (int,
+                        Schema(None,
+                               title=k,
+                               description=f'this is the {k} field'))
+            if (x[k]['type'] == 'float'):
+                z[k] = (float,
+                        Schema(None,
+                               title=k,
+                               description=f'this is the {k} field'))
+            if (x[k]['type'] == 'nested'):
+                c[k.title()] = create_model(k.title() + 'Record',
+                                            **mappings(x[k]['properties']))
+                z[k] = (List[c[k.title()]], [])
         # if('properties' in x[k]):
         #     locals()[k.title()] = create_model(k.title()+'Record', **mappings(x[k]['properties']))
         #     z[k] = (locals()[k.title()]],{})
-            
-    return(z)
 
-@app.get("/experiment/{accession}", tags=['SRA'], response_model = create_model('Experiment1',**mappings(m)))
-async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return (z)
+
+
+@app.get("/experiment/{accession}",
+         tags=['SRA'],
+         response_model=create_model('Experiment1', **mappings(m)))
+async def get_experiment_accession(
+        getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_experiment')
 
 
-
-@app.get("/run2/{accession}", tags=['SRA'], response_model = p.SraRun)
+@app.get("/run2/{accession}", tags=['SRA'], response_model=p.SraRun)
 async def get_run_accession_from_pg(accession: str):
     import sqlalchemy as sa
     from sqlalchemy.sql import text
@@ -172,80 +185,95 @@ async def get_run_accession_from_pg(accession: str):
 class SimpleQueryStringSearch():
     """Basic lucene query string search
     """
-    def __init__(self,
-                 q: str = Query(
-                     None,
-                     description = "The query, using lucene query syntax",
-                     example = "cancer AND breast AND published:[2018 TO 2021]"),
-                 size: int = Query(10, gte = 0, lt = 1000, example = 10),
-                 facets: List[str] = Query(
-                     [],
-                     description = ('A list of strings identifying fields '
-                                    'for faceted search results. Simple '
-                                    'term faceting is used here, meaning '
-                                    'that fields that are short text and repeated '
-                                    'across records will be binned and counted.'),
-                     example = ['center_name.keyword'],
-                     )
-    ):
+    def __init__(
+            self,
+            q: str = Query(
+                None,
+                description="The query, using lucene query syntax",
+                example="cancer AND breast AND published:[2018 TO 2021]"),
+            size: int = Query(10, gte=0, lt=1000, example=10),
+            facets: List[str] = Query(
+                [],
+                description=('A list of strings identifying fields '
+                             'for faceted search results. Simple '
+                             'term faceting is used here, meaning '
+                             'that fields that are short text and repeated '
+                             'across records will be binned and counted.'),
+                example=['center_name.keyword'],
+            )):
         self.q = q
         self.size = size
         self.facets = facets
 
     def search(self, index):
-        search = Search(using = es.client)
-        s = search.index(index).query('query_string', query = self.q)[0:self.size]
+        search = Search(using=es.client)
+        s = search.index(index).query('query_string',
+                                      query=self.q)[0:self.size]
         for agg in self.facets:
             # these update the s object in place
             # as opposed to the query method(s) that
             # return a new copied object
-            s.aggs.bucket(agg,'terms',field=agg)
+            s.aggs.bucket(agg, 'terms', field=agg)
         resp = s.execute()
-        return {"hits": [res for res in resp],
-                "facets": resp.aggs.to_dict(),
-                "stats": {"total": resp.hits.total,
-                          "took": resp.took},
-                "success": resp.success()
+        return {
+            "hits": [res for res in resp],
+            "facets": resp.aggs.to_dict(),
+            "stats": {
+                "total": resp.hits.total,
+                "took": resp.took
+            },
+            "success": resp.success()
         }
 
-    
+
 @app.get("/studies/search", tags=['SRA', 'Search'])
-async def search_studies(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+async def search_studies(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_study')
 
+
 @app.get("/experiments/search", tags=['SRA', 'Search'])
-async def search_experiments(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+async def search_experiments(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_experiment')
 
+
 @app.get("/runs/search", tags=['SRA', 'Search'])
-async def search_runs(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+async def search_runs(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_run')
 
+
 @app.get("/samples/search", tags=['SRA', 'Search'])
-async def search_samples(searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+async def search_samples(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_sample')
-
-
 
 
 @app.get("/sql", tags=["SQL"])
 async def elasticsearch_sql(
-        query: str = Query(...,
-                           example = "SELECT * FROM sra_study WHERE QUERY('breast cancer')",
-                           description = ('And Elasticsearch SQL query. See the '
-                                          'endpoint description for more details.'),
+        query: str = Query(
+            ...,
+            example="SELECT * FROM sra_study WHERE QUERY('breast cancer')",
+            description=('And Elasticsearch SQL query. See the '
+                         'endpoint description for more details.'),
         ),
-        cursor: str = Query(None,
-                            description = ('The cursor returned by a large result '
-                                           'set can be used here to fetch the next '
-                                           'set of results.'),),
-        size: int = Query(500, gte=0, lt=1000, example = 10,
-                          description = ('The size of the result set to return. '
-                                         'Minimum: 0, maximum: 1000. Use the '
-                                         '`cursor` functionality to loop over result '
-                                         'sets larger than `size`.'),
-                          )
-):
+        cursor: str = Query(
+            None,
+            description=('The cursor returned by a large result '
+                         'set can be used here to fetch the next '
+                         'set of results.'),
+        ),
+        size: int = Query(
+            500,
+            gte=0,
+            lt=1000,
+            example=10,
+            description=('The size of the result set to return. '
+                         'Minimum: 0, maximum: 1000. Use the '
+                         '`cursor` functionality to loop over result '
+                         'sets larger than `size`.'),
+        )):
     """Use Elasticsearch SQL to get results.
 
     Elasticsearch SQL has some [limitations](https://www.elastic.co/guide/en/elasticsearch/reference/7.0/sql-limitations.html) relative to regular relational
@@ -316,13 +344,17 @@ async def elasticsearch_sql(
 
     """
     try:
-        if(cursor is not None):
-            return es.client.transport.perform_request('POST','/_xpack/sql',body={"cursor":cursor})
-        return es.client.transport.perform_request('POST','/_xpack/sql',body={
-            "query":query,
-            "fetch_size": size
-        })
-            
+        if (cursor is not None):
+            return es.client.transport.perform_request('POST',
+                                                       '/_xpack/sql',
+                                                       body={"cursor": cursor})
+        return es.client.transport.perform_request('POST',
+                                                   '/_xpack/sql',
+                                                   body={
+                                                       "query": query,
+                                                       "fetch_size": size
+                                                   })
+
     except elasticsearch.exceptions.TransportError as e:
         return e.info['error'], 400
 
@@ -334,36 +366,26 @@ class ExtendedSearch(BaseModel):
     DSL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html)
     for how to construct a query. 
     """
-    query: dict = Schema(
-        ...,
-        example = {"query_string": {"query": "cancer"}}
-    )
-    aggs: dict = Schema(
-        {},
-        description = "Aggregates"
-    )
-    size: int = Schema(
-        10,
-        description = ('The maximum number of records to return'),
-        gte = 0,
-        lte = 1000,
-        example = 10
-    )
-    filter: dict = Schema(
-        {},
-        description = "Filters"
-    )
-    search_after: List[Any] = Schema(
-        [],
-        description = "search_after functionality",
-        example = []
-    )
+    query: dict = Schema(..., example={"query_string": {"query": "cancer"}})
+    aggs: dict = Schema({}, description="Aggregates")
+    size: int = Schema(10,
+                       description=('The maximum number of records to return'),
+                       gte=0,
+                       lte=1000,
+                       example=10)
+    filter: dict = Schema({}, description="Filters")
+    search_after: List[Any] = Schema([],
+                                     description="search_after functionality",
+                                     example=[])
     sort: List[dict] = Schema(
-        [{"_score":"desc"}],
-        description = "sort by",
-        example = [{"_id":"asc"}],
+        [{
+            "_score": "desc"
+        }],
+        description="sort by",
+        example=[{
+            "_id": "asc"
+        }],
     )
-
 
     def do_search(self, index):
         """do a full elasticsearch search
@@ -374,53 +396,47 @@ class ExtendedSearch(BaseModel):
         returns the raw elasticsearch response.
         """
         body_dict = self.dict()
-        
+
         # need to clean up defaults
-        if(len(body_dict['aggs'])==0):
-            del(body_dict['aggs'])
+        if (len(body_dict['aggs']) == 0):
+            del (body_dict['aggs'])
 
-        if(len(body_dict['search_after'])==0):
-            del(body_dict['search_after'])
-        elif(len(body_dict['search_after'])==1):
-            if(body_dict['search_after'][0] is None):
-                del(body_dict['search_after'])
+        if (len(body_dict['search_after']) == 0):
+            del (body_dict['search_after'])
+        elif (len(body_dict['search_after']) == 1):
+            if (body_dict['search_after'][0] is None):
+                del (body_dict['search_after'])
 
-        if(len(body_dict['sort'])==1):
-            if(body_dict['sort'][0]=={}):
-                body_dict['sort']=[{'_id':'asc'}]
+        if (len(body_dict['sort']) == 1):
+            if (body_dict['sort'][0] == {}):
+                body_dict['sort'] = [{'_id': 'asc'}]
 
-        if(len(body_dict['filter'])==0):
-            del(body_dict['filter'])
+        if (len(body_dict['filter']) == 0):
+            del (body_dict['filter'])
 
-        resp = es.client.search(index = index, body=body_dict)
+        resp = es.client.search(index=index, body=body_dict)
 
         # returns raw elasticsearch response
         return resp
 
 
-    
 @app.post("/studies/extendedSearch", tags=["SRA", "Search"])
-def extended_study_search(
-        body: ExtendedSearch
-):
+def extended_study_search(body: ExtendedSearch):
     return body.do_search('sra_study')
 
+
 @app.post("/samples/extendedSearch", tags=["SRA", "Search"])
-def extended_samples_search(
-        body: ExtendedSearch
-):
+def extended_samples_search(body: ExtendedSearch):
     return body.do_search('sra_sample')
 
+
 @app.post("/experiments/extendedSearch", tags=["SRA", "Search"])
-def extended_experiment_search(
-        body: ExtendedSearch
-):
+def extended_experiment_search(body: ExtendedSearch):
     return body.do_search('sra_experiment')
 
+
 @app.post("/runs/extendedSearch", tags=["SRA", "Search"])
-def extended_study_search(
-        body: ExtendedSearch
-):
+def extended_study_search(body: ExtendedSearch):
     return body.do_search('sra_run')
 
 
@@ -429,12 +445,14 @@ def abc(mappings):
     fields = []
     for k, v in mappings.items():
         keyword = False
-        if('fields' in v):
-            if('keyword' in v['fields']):
-                keyword=True
+        if ('fields' in v):
+            if ('keyword' in v['fields']):
+                keyword = True
         fields.append((k, v['type'], keyword))
     return fields
 
+
 @app.get("/_mapping")
 def mapping():
-    return(list(es.client.indices.get_mapping('sra_experiment').values())[0]['mappings']['properties'])
+    return (list(es.client.indices.get_mapping('sra_experiment').values())[0]
+            ['mappings']['properties'])
