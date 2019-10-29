@@ -20,7 +20,7 @@ from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
 
-from .schema import schema
+#from .schema import schema
 
 from starlette.middleware.cors import CORSMiddleware
 
@@ -79,6 +79,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .schema import schema
 app.add_route('/graphql', GraphQLApp(schema=schema))
 
 
