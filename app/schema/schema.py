@@ -11,25 +11,6 @@ import app.mappings_stuff
 SRA_STUDY_IDX = 'sra_study-zq'
 
 
-##############
-# Not used   #
-##############
-class PersonInput(graphene.InputObjectType):
-    name = graphene.String(required=False)
-    age = graphene.Int(required=False)
-
-
-class FilterInput(graphene.InputObjectType):
-    condition = graphene.InputField(PersonInput)
-
-
-class QueryInput(graphene.InputObjectType):
-    q = graphene.String(description="A query")
-    sort = graphene.List(graphene.String)
-    search_after = graphene.List(graphene.String)
-    size = graphene.Int(required=False, default=10)
-
-
 class ESGraphqlDateTime(graphene.types.Scalar):
     """elasticsearch dates to GraphQL isoformat dates"""
     @staticmethod
@@ -92,8 +73,6 @@ class IdentifierType(graphene.ObjectType):
 
 def return_basic_fields_from_index(idx):
     cls = idx
-    #    if(idx=='sra_experiment'):
-    #        cls = 'test_experiment'
     fields = es.indices.get_mapping(idx)[cls]['mappings']['properties']
     short_fields = {}
     for name, details in fields.items():
@@ -104,9 +83,6 @@ def return_basic_fields_from_index(idx):
         if ('type' not in details):
             continue
 
-
-#        if(details['type']=='nested'):
-#            continue
         if (details['type'] == 'text'):
             short_fields[name] = graphene.String()
         elif (details['type'] == 'boolean'):
@@ -149,16 +125,6 @@ def createType2(name, idx):
                 default_resolver=graphene.types.resolver.dict_resolver,
                 interfaces=(SRABase, ))
 
-
-# not used right now.
-typemap = {
-    'SRAStudyType': 'sra_study',
-    'SRAStudyType2': 'sra_study',
-    'SRAExperimentType': 'sra_experiment',
-    'SRARunType': 'sra_run_dynamic_test',
-    'SRASampleType': 'sra_sample1',
-    'BiosampleType': 'biosample'
-}
 
 SRAStudyType = createType('SRAStudyType', SRA_STUDY_IDX)
 SRASampleType = createType('SRASampleType', 'sra_sample')
@@ -203,18 +169,9 @@ def get_by_accession(index, accession, doc_type='_doc'):
     return res['_source']
 
 
-exptfield = graphene.Field(
-    SRAExperimentType,
-    description="Fetch a single entity by its accession",
-    accession=graphene.String(description='Lookup by a single accession'))
-
-enumtest = graphene.Enum('enumtest',
-                         (('study', 'study'),
-                          ('study_accession', ['study.accession', 'abc'])))
-
-
-class matchtype(graphene.InputObjectType):
-    fields = graphene.List(enumtest)
+# enumtest = graphene.Enum('enumtest',
+#                          (('study', 'study'),
+#                           ('study_accession', ['study.accession', 'abc'])))
 
 
 def gen_input_field(cls, index):
@@ -225,14 +182,14 @@ def gen_input_field(cls, index):
                  sort: typing.List[str] = ['_score', 'accession.keyword'],
                  aggs: typing.List[str] = []) -> object:
         body = {
-            "sort": [s + '.keyword' for s in sort],
+            "sort": sort,
             "query": {
                 "query_string": {
                     "query": q,
                     "fields": ["*"]
                 }
             },
-            "size": size
+            "size": min(size, 500)
         }
         if (len(aggs) > 0):
             body['aggs'] = {}
