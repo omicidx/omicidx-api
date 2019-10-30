@@ -14,11 +14,13 @@ elasticsearch_dsl = "^7.0.0"
 graphene_elastic = "^0.6"
 omicidx = { git = "git@gitlab.com:seandavi/omicidx.git", branch = "master" }
 email-validator = "^1.0.4"
+pyparsing = "^2.4"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.8"
 uvicorn = "^0.9.0"
 pytest = "^5.2.1"
+yapf = "^0.28.0"
 
 [build-system]
 requires = ["poetry>=0.12"]
