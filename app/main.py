@@ -1,3 +1,6 @@
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
+
 from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
 from pydantic import (BaseModel, ValidationError, validator, Schema)
 from starlette.responses import RedirectResponse
@@ -8,6 +11,8 @@ from typing import List, Any
 from .esclient import ESClient
 from elasticsearch_dsl import Search
 import elasticsearch
+
+
 
 #from .schema import schema
 
@@ -54,7 +59,7 @@ screen but instead in a format that computers (and often humans) can
 read.
 """)
 
-es = ESClient('config.ini')
+es = ESClient()
 
 # CORS
 app.add_middleware(

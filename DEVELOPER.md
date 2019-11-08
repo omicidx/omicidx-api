@@ -1,5 +1,14 @@
 # Developer docs
 
+## Configuration setup
+
+Configuration is via a `toml` file. The location of the file
+is contained in the environment variable `OMICIDX_CONFIGURAITON_FILE`.
+
+To ease development, I use a `.env` file and load it at the top of the 
+main app. See [python-dotenv](https://saurabh-kumar.com/python-dotenv/) for
+details.
+
 ## working with fastapi
 
 ### Run the code
@@ -18,7 +27,7 @@ uvicorn main:app --reload
 
 - http://localhost:8000/openapi.json
 - http://127.0.0.1:8000/redoc (see [ReDoc](https://github.com/Rebilly/ReDoc))
-- http://127.0.0.1:8000/doc 
+- http://127.0.0.1:8000/docs 
 
 ### testing
 

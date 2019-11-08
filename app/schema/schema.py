@@ -8,7 +8,7 @@ from ..esclient import ESClient
 from ..mappings_stuff import FilterInputType
 import app.mappings_stuff
 
-SRA_STUDY_IDX = 'sra_study-zq'
+SRA_STUDY_IDX = 'sra_study'
 
 
 class ESGraphqlDateTime(graphene.types.Scalar):
@@ -43,7 +43,7 @@ class ESGraphqlDateTime(graphene.types.Scalar):
         return dateutil.parser.parse(value)
 
 
-es = ESClient('config.ini').client
+es = ESClient().client
 
 
 class AttributeType(graphene.ObjectType):
@@ -106,30 +106,23 @@ def return_basic_fields_from_index(idx):
     return short_fields
 
 
-class SRABase(graphene.Interface):
-    totalCount = graphene.Int()
-
-
 def createType(name, idx):
     short_fields = return_basic_fields_from_index(idx)
     return type(name, (graphene.ObjectType, ),
                 short_fields,
-                default_resolver=graphene.types.resolver.dict_resolver,
-                interfaces=(SRABase, ))
+                default_resolver=graphene.types.resolver.dict_resolver)
 
 
 def createType2(name, idx):
     short_fields = return_basic_fields_from_index(idx)
     return type(name, (graphene.ObjectType, ),
                 short_fields,
-                default_resolver=graphene.types.resolver.dict_resolver,
-                interfaces=(SRABase, ))
+                default_resolver=graphene.types.resolver.dict_resolver)
 
 
 SRAStudyType = createType('SRAStudyType', SRA_STUDY_IDX)
 SRASampleType = createType('SRASampleType', 'sra_sample')
 BiosampleType = createType('BiosampleType', 'biosample')
-SRASampleType2 = createType2('SRASampleType2', 'sra_sample')
 SRARunType = createType('SRARunType', 'sra_run')
 SRAExperimentType = createType('SRAExperimentType', 'sra_experiment')
 
@@ -179,8 +172,9 @@ def gen_input_field(cls, index):
                  info,
                  q: str = "*:*",
                  size: int = 50,
-                 sort: typing.List[str] = ['_score', 'accession.keyword'],
-                 aggs: typing.List[str] = []) -> object:
+        #         sort: typing.List[str] = ['_score', 'accession.keyword'],
+        #         aggs: typing.List[str] = []
+        ) -> object:
         body = {
             "sort": sort,
             "query": {
@@ -191,10 +185,10 @@ def gen_input_field(cls, index):
             },
             "size": min(size, 500)
         }
-        if (len(aggs) > 0):
-            body['aggs'] = {}
-            for f in aggs:
-                body["aggs"][f] = {"terms": {"field": f + ".keyword"}}
+        # if (len(aggs) > 0):
+        #     body['aggs'] = {}
+        #     for f in aggs:
+        #         body["aggs"][f] = {"terms": {"field": f + ".keyword"}}
         res = es.search(index, body=body)
         ret = []
         ret = list([x['_source'] for x in res['hits']['hits']])
@@ -210,9 +204,9 @@ def gen_input_field(cls, index):
                           "(https://www.elastic.co/guide/en/elasticsearch"
                           "/reference/7.3/query-dsl-query-string-query."
                           "html#query-string-syntax)"),
-        sort=graphene.List(graphene.String),
+        # sort=graphene.List(graphene.String),
         size=graphene.Int(),
-        aggs=graphene.List(graphene.String),
+        # aggs=graphene.List(graphene.String),
     )
 
 
@@ -233,42 +227,42 @@ class Query(graphene.ObjectType):
 
     node = graphene.relay.Node.Field()
 
-    sqlQuery = graphene.Field(
-        graphene.String,
-        query=graphene.String(description="elasticsearch sql query"),
-        cursor=graphene.String(
-            description="cursor for paging through sql results"))
+    # sqlQuery = graphene.Field(
+    #     graphene.String,
+    #     query=graphene.String(description="elasticsearch sql query"),
+    #     cursor=graphene.String(
+    #         description="cursor for paging through sql results"))
 
-    sqlTranslate = graphene.Field(
-        graphene.JSONString,
-        query=graphene.String(description="elasticsearch sql query"))
+    # sqlTranslate = graphene.Field(
+    #     graphene.JSONString,
+    #     query=graphene.String(description="elasticsearch sql query"))
     sraStudyQuery = gen_input_field(SRAStudyType, SRA_STUDY_IDX)
     biosampleQuery = gen_input_field(BiosampleType, 'biosample')
     sraSampleQuery = gen_input_field(SRASampleType, 'sra_sample')
     sraRunQuery = gen_input_field(SRARunType, 'sra_run')
     sraExperimentQuery = gen_input_field(SRAExperimentType, 'sra_experiment')
 
-    all_runs = IterableConnectionField2(SRARunConnection)
+    # all_runs = IterableConnectionField2(SRARunConnection)
 
-    sraStudy = gen_get_by_accession(SRAStudyType, SRA_STUDY_IDX)
-    sraSample = gen_get_by_accession(SRASampleType, 'sra_sample')
-    sraExperiment = gen_get_by_accession(SRAExperimentType, 'sra_experiment')
-    sraRun = gen_get_by_accession(SRARunType, 'sra_run')
+    sraStudyByAccession = gen_get_by_accession(SRAStudyType, SRA_STUDY_IDX)
+    sraSampleByAccession = gen_get_by_accession(SRASampleType, 'sra_sample')
+    sraExperimentByAccession = gen_get_by_accession(SRAExperimentType, 'sra_experiment')
+    sraRunByAccession = gen_get_by_accession(SRARunType, 'sra_run')
 
-    def resolve_sqlQuery(root, info, query, cursor=None):
-        if (cursor is not None):
-            return es.transport.perform_request('post',
-                                                '/_sql',
-                                                body={"cursor": cursor})
-        res = es.transport.perform_request('post',
-                                           '/_sql',
-                                           body={"query": query})
-        return res
+    # def resolve_sqlQuery(root, info, query, cursor=None):
+    #     if (cursor is not None):
+    #         return es.transport.perform_request('post',
+    #                                             '/_sql',
+    #                                             body={"cursor": cursor})
+    #     res = es.transport.perform_request('post',
+    #                                        '/_sql',
+    #                                        body={"query": query})
+    #     return res
 
-    def resolve_sqlTranslate(self, info, query):
-        return es.transport.perform_request('post',
-                                            '/_sql/translate/',
-                                            body={"query": query})
+    # def resolve_sqlTranslate(self, info, query):
+    #     return es.transport.perform_request('post',
+    #                                         '/_sql/translate/',
+    #                                         body={"query": query})
 
     def resolve_sra_connection(self, connection_type, index, **args):
         filters = args.get('filter', {})
