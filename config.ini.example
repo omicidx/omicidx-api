@@ -1,4 +1,0 @@
-[elasticsearch]
-nodes = https://example_url.us-east-1.aws.found.io:9243
-user  = username
-password = password
