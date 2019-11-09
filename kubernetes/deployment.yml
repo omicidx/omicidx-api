@@ -14,8 +14,19 @@ spec:
       labels:
         app: omicidx-fastapi
     spec:
+      volumes:
+        - name: omicidx-config
+          secret:
+            secretName: omicidx-config
       containers:
       - name: omicidx-fastapi
         image: gcr.io/isb-cgc-01-0006/omicidx-fastapi
         ports:
-        - containerPort: 80
+          - containerPort: 80
+        volumeMounts:
+          - name: omicidx-config
+            readOnly: true
+            mountPath: "/etc/omicidx-api"
+        env:
+          - name: OMICIDX_CONFIG_FILE
+            value: '/etc/omicidx-api/omicidx-config'
