@@ -79,7 +79,7 @@ def get_query_translation(builder, q, **kwargs):
         tree = parser.parse(q)
         transformer = BareTextTransformer()
         tree = transformer.visit(tree)
-        return json.dumps(builder(tree), **kwargs)
+        return builder(tree)
     except ParseError as e:
         # TODO better error message (text)
         # TODO return error in response

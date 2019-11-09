@@ -9,10 +9,8 @@ from starlette.requests import Request
 from starlette.graphql import GraphQLApp
 from typing import List, Any
 from .esclient import ESClient
-from elasticsearch_dsl import Search
+from elasticsearch_dsl import Search, connections
 import elasticsearch
-
-
 
 #from .schema import schema
 
@@ -60,6 +58,7 @@ read.
 """)
 
 es = ESClient()
+connections.add_connection('default', es.client)
 
 # CORS
 app.add_middleware(
@@ -116,6 +115,10 @@ async def get_sample_accession(
 @app.get("/run/{accession}", tags=['SRA'], response_model=p.SraRun)
 async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_run')
+
+@app.get("/run/{accession}", tags=['Biosample'], response_model=p.SraRun)
+async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('biosample')
 
 
 from pydantic import Schema, create_model
@@ -176,15 +179,15 @@ async def get_experiment_accession(
     return getter.get('sra_experiment')
 
 
-@app.get("/run2/{accession}", tags=['SRA'], response_model=p.SraRun)
-async def get_run_accession_from_pg(accession: str):
-    import sqlalchemy as sa
-    from sqlalchemy.sql import text
-    engine = sa.create_engine('postgresql://sdavis2@localhost/sdavis2')
-    con = engine.connect()
-    stmt = text("select json from json_table where accession = :accession")
-    res = con.execute(stmt, {"accession": accession})
-    return p.SraRun(**res.fetchone()['json'])
+# @app.get("/run2/{accession}", tags=['SRA'], response_model=p.SraRun)
+# async def get_run_accession_from_pg(accession: str):
+#     import sqlalchemy as sa
+#     from sqlalchemy.sql import text
+#     engine = sa.create_engine('postgresql://sdavis2@localhost/sdavis2')
+#     con = engine.connect()
+#     stmt = text("select json from json_table where accession = :accession")
+#     res = con.execute(stmt, {"accession": accession})
+#     return p.SraRun(**res.fetchone()['json'])
 
 
 class SimpleQueryStringSearch():
@@ -195,8 +198,9 @@ class SimpleQueryStringSearch():
             q: str = Query(
                 None,
                 description="The query, using lucene query syntax",
-                example="cancer AND breast AND published:[2018 TO 2021]"),
+                example="cancer AND published:[2018-01-01 TO *]"),
             size: int = Query(10, gte=0, lt=1000, example=10),
+            cursor: str = None,
             facets: List[str] = Query(
                 [],
                 description=('A list of strings identifying fields '
@@ -209,240 +213,275 @@ class SimpleQueryStringSearch():
         self.q = q
         self.size = size
         self.facets = facets
+        self.cursor = cursor
+
+    def _create_search_after(self, hit):
+        """Create a cursor
+        
+        currently, implemented as simply using the 'id' field. 
+        """
+        from .cursor import encode_cursor
+        # TODO: implement sorting here
+        return encode_cursor(sort_dict = [{"_id":"asc"}], resp = hit.meta.id)
+
+    def _resolve_search_after(self, cursor_string):
+        from .cursor import decode_cursor
+        (sort_dict, id) = decode_cursor(cursor_string)
+        return (sort_dict, id)
 
     def search(self, index):
-        search = Search(using=es.client)
-        s = search.index(index).query('query_string',
-                                      query=self.q)[0:self.size]
+        searcher = Search(index = index)
+        from .luqum_helper import (get_query_builder, get_query_translation)
+        s = searcher.update_from_dict({"track_total_hits": True})[0:self.size]
+        if(self.q is not None):
+            builder = get_query_builder(index)
+            translation = get_query_translation(builder, self.q)
+            s = searcher.update_from_dict({"track_total_hits": True, "query": translation})
+        # s = search.index(index).query('query_string',
+        #                               query=self.q)[0:self.size]
         for agg in self.facets:
             # these update the s object in place
             # as opposed to the query method(s) that
             # return a new copied object
             s.aggs.bucket(agg, 'terms', field=agg)
+        s = s.sort({"_id":{"order":"asc"}})
+        if(self.cursor is not None):
+            s = s.extra(search_after = [self._resolve_search_after(self.cursor)[1]]) 
         resp = s.execute()
+        hits = list([res for res in resp])
+        # cursor
+        search_after = None
+        if(len(hits)==self.size):
+            search_after = self._create_search_after(hits[-1])
+        
         return {
-            "hits": [res for res in resp],
+            "hits": [res.to_dict() for res in resp],
             "facets": resp.aggs.to_dict(),
+            "search_after": search_after,
             "stats": {
-                "total": resp.hits.total,
+                "total": resp.hits.total.value,
                 "took": resp.took
             },
             "success": resp.success()
         }
 
 
-@app.get("/studies/search", tags=['SRA', 'Search'])
+@app.get("/studies/search", tags=['SRA'])
 async def search_studies(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_study')
 
 
-@app.get("/experiments/search", tags=['SRA', 'Search'])
+@app.get("/experiments/search", tags=['SRA'])
 async def search_experiments(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_experiment')
 
 
-@app.get("/runs/search", tags=['SRA', 'Search'])
+@app.get("/runs/search", tags=['SRA'])
 async def search_runs(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_run')
 
 
-@app.get("/samples/search", tags=['SRA', 'Search'])
+@app.get("/samples/search", tags=['SRA'])
 async def search_samples(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_sample')
 
+@app.get("/biosample/search", tags=['Biosample'])
+async def search_studies(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+    return searcher.search('biosample')
 
-@app.get("/sql", tags=["SQL"])
-async def elasticsearch_sql(
-        query: str = Query(
-            ...,
-            example="SELECT * FROM sra_study WHERE QUERY('breast cancer')",
-            description=('And Elasticsearch SQL query. See the '
-                         'endpoint description for more details.'),
-        ),
-        cursor: str = Query(
-            None,
-            description=('The cursor returned by a large result '
-                         'set can be used here to fetch the next '
-                         'set of results.'),
-        ),
-        size: int = Query(
-            500,
-            gte=0,
-            lt=1000,
-            example=10,
-            description=('The size of the result set to return. '
-                         'Minimum: 0, maximum: 1000. Use the '
-                         '`cursor` functionality to loop over result '
-                         'sets larger than `size`.'),
-        )):
-    """Use Elasticsearch SQL to get results.
+# @app.get("/sql", tags=["SQL"])
+# async def elasticsearch_sql(
+#         query: str = Query(
+#             ...,
+#             example="SELECT * FROM sra_study WHERE QUERY('breast cancer')",
+#             description=('And Elasticsearch SQL query. See the '
+#                          'endpoint description for more details.'),
+#         ),
+#         cursor: str = Query(
+#             None,
+#             description=('The cursor returned by a large result '
+#                          'set can be used here to fetch the next '
+#                          'set of results.'),
+#         ),
+#         size: int = Query(
+#             500,
+#             gte=0,
+#             lt=1000,
+#             example=10,
+#             description=('The size of the result set to return. '
+#                          'Minimum: 0, maximum: 1000. Use the '
+#                          '`cursor` functionality to loop over result '
+#                          'sets larger than `size`.'),
+#         )):
+#     """Use Elasticsearch SQL to get results.
 
-    Elasticsearch SQL has some [limitations](https://www.elastic.co/guide/en/elasticsearch/reference/7.0/sql-limitations.html) relative to regular relational
-    databases. In particular, there are no
-    "joins" available in Elasticsearch SQL.
+#     Elasticsearch SQL has some [limitations](https://www.elastic.co/guide/en/elasticsearch/reference/7.0/sql-limitations.html) relative to regular relational
+#     databases. In particular, there are no
+#     "joins" available in Elasticsearch SQL.
 
-    See: 
-      - [elasticsearch SQL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-syntax-select.html)
-      - [An Introduction to Elasticsearch SQL with Practical Examples - Part 1](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-1)
-      - [An Introduction to Elasticsearch SQL with Practical Examples - Part 2](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-2)
-      - [Elasticsearch functions and operators](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-functions.html)
+#     See: 
+#       - [elasticsearch SQL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-syntax-select.html)
+#       - [An Introduction to Elasticsearch SQL with Practical Examples - Part 1](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-1)
+#       - [An Introduction to Elasticsearch SQL with Practical Examples - Part 2](https://www.elastic.co/blog/an-introduction-to-elasticsearch-sql-with-practical-examples-part-2)
+#       - [Elasticsearch functions and operators](https://www.elastic.co/guide/en/elasticsearch/reference/current/sql-functions.html)
 
-    ## Example queries
+#     ## Example queries
 
-    These example queries can be pasted into the `query` field on 
-    the online docs or can be used in the `query` field from a
-    client. Note that it may be beneficial to change the default
-    `size` field to a larger value (up to the maximum). For `GROUP BY`
-    queries, there is an intrinsic limit of 512 records, so specifying
-    `LIMIT` greater than 512 will result in errors.
+#     These example queries can be pasted into the `query` field on 
+#     the online docs or can be used in the `query` field from a
+#     client. Note that it may be beneficial to change the default
+#     `size` field to a larger value (up to the maximum). For `GROUP BY`
+#     queries, there is an intrinsic limit of 512 records, so specifying
+#     `LIMIT` greater than 512 will result in errors.
 
-    Select all top-level fields from sra studies. Note that the
-    result will include a `cursor` field. Supply the `cursor` string
-    to the cursor field and rerun the query to get the next batch
-    of results.
+#     Select all top-level fields from sra studies. Note that the
+#     result will include a `cursor` field. Supply the `cursor` string
+#     to the cursor field and rerun the query to get the next batch
+#     of results.
 
-    ```
-    select * from sra_study
-    ```
+#     ```
+#     select * from sra_study
+#     ```
 
-    Get a count of the visibility (open, controlled access, etc.) from all studies.
+#     Get a count of the visibility (open, controlled access, etc.) from all studies.
 
-    ```
-    select visibility, count(*) 
-    from sra_study 
-    group by visibility
-    ```
+#     ```
+#     select visibility, count(*) 
+#     from sra_study 
+#     group by visibility
+#     ```
     
-    Get a count of the number of studies publised by month.
+#     Get a count of the number of studies publised by month.
 
-    ```
-    select MONTH(published) as month,
-           YEAR(published) as year,
-           count(*)
-    from sra_study 
-    group by month, year
-    order by year desc, month desc
-    ```
-    Perform a full text search on experiments and get a count of records.
+#     ```
+#     select MONTH(published) as month,
+#            YEAR(published) as year,
+#            count(*)
+#     from sra_study 
+#     group by month, year
+#     order by year desc, month desc
+#     ```
+#     Perform a full text search on experiments and get a count of records.
 
-    ```
-    select count(*) as experiment_count
-    from sra_experiment
-    where QUERY('cancer')
-    ```
+#     ```
+#     select count(*) as experiment_count
+#     from sra_experiment
+#     where QUERY('cancer')
+#     ```
 
-    And get a count of the library_strategies associated with those
-    experiments.
+#     And get a count of the library_strategies associated with those
+#     experiments.
 
-    ```
-    select count(*) as experiment_count, library_strategy
-    from sra_experiment
-    where QUERY('cancer')
-    group by library_strategy
-    order by experiment_count desc
-    limit 100
-    ```
+#     ```
+#     select count(*) as experiment_count, library_strategy
+#     from sra_experiment
+#     where QUERY('cancer')
+#     group by library_strategy
+#     order by experiment_count desc
+#     limit 100
+#     ```
 
-    """
-    try:
-        if (cursor is not None):
-            return es.client.transport.perform_request('POST',
-                                                       '/_xpack/sql',
-                                                       body={"cursor": cursor})
-        return es.client.transport.perform_request('POST',
-                                                   '/_xpack/sql',
-                                                   body={
-                                                       "query": query,
-                                                       "fetch_size": size
-                                                   })
+#     """
+#     try:
+#         if (cursor is not None):
+#             return es.client.transport.perform_request('POST',
+#                                                        '/_xpack/sql',
+#                                                        body={"cursor": cursor})
+#         return es.client.transport.perform_request('POST',
+#                                                    '/_xpack/sql',
+#                                                    body={
+#                                                        "query": query,
+#                                                        "fetch_size": size
+#                                                    })
 
-    except elasticsearch.exceptions.TransportError as e:
-        return e.info['error'], 400
-
-
-class ExtendedSearch(BaseModel):
-    """This encapsulates all the pieces of an 
-    extendedQuery. The only required field is 
-    the `query` field. See [the Elasticsearch query 
-    DSL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html)
-    for how to construct a query. 
-    """
-    query: dict = Schema(..., example={"query_string": {"query": "cancer"}})
-    aggs: dict = Schema({}, description="Aggregates")
-    size: int = Schema(10,
-                       description=('The maximum number of records to return'),
-                       gte=0,
-                       lte=1000,
-                       example=10)
-    filter: dict = Schema({}, description="Filters")
-    search_after: List[Any] = Schema([],
-                                     description="search_after functionality",
-                                     example=[])
-    sort: List[dict] = Schema(
-        [{
-            "_score": "desc"
-        }],
-        description="sort by",
-        example=[{
-            "_id": "asc"
-        }],
-    )
-
-    def do_search(self, index):
-        """do a full elasticsearch search
-
-        index: str 
-            the elasticsearch index
-
-        returns the raw elasticsearch response.
-        """
-        body_dict = self.dict()
-
-        # need to clean up defaults
-        if (len(body_dict['aggs']) == 0):
-            del (body_dict['aggs'])
-
-        if (len(body_dict['search_after']) == 0):
-            del (body_dict['search_after'])
-        elif (len(body_dict['search_after']) == 1):
-            if (body_dict['search_after'][0] is None):
-                del (body_dict['search_after'])
-
-        if (len(body_dict['sort']) == 1):
-            if (body_dict['sort'][0] == {}):
-                body_dict['sort'] = [{'_id': 'asc'}]
-
-        if (len(body_dict['filter']) == 0):
-            del (body_dict['filter'])
-
-        resp = es.client.search(index=index, body=body_dict)
-
-        # returns raw elasticsearch response
-        return resp
+#     except elasticsearch.exceptions.TransportError as e:
+#         return e.info['error'], 400
 
 
-@app.post("/studies/extendedSearch", tags=["SRA", "Search"])
-def extended_study_search(body: ExtendedSearch):
-    return body.do_search('sra_study')
+# class ExtendedSearch(BaseModel):
+#     """This encapsulates all the pieces of an 
+#     extendedQuery. The only required field is 
+#     the `query` field. See [the Elasticsearch query 
+#     DSL documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html)
+#     for how to construct a query. 
+#     """
+#     query: dict = Schema(..., example={"query_string": {"query": "cancer"}})
+#     aggs: dict = Schema({}, description="Aggregates")
+#     size: int = Schema(10,
+#                        description=('The maximum number of records to return'),
+#                        gte=0,
+#                        lte=1000,
+#                        example=10)
+#     filter: dict = Schema({}, description="Filters")
+#     search_after: List[Any] = Schema([],
+#                                      description="search_after functionality",
+#                                      example=[])
+#     sort: List[dict] = Schema(
+#         [{
+#             "_score": "desc"
+#         }],
+#         description="sort by",
+#         example=[{
+#             "_id": "asc"
+#         }],
+#     )
+
+#     def do_search(self, index):
+#         """do a full elasticsearch search
+
+#         index: str 
+#             the elasticsearch index
+
+#         returns the raw elasticsearch response.
+#         """
+#         body_dict = self.dict()
+
+#         # need to clean up defaults
+#         if (len(body_dict['aggs']) == 0):
+#             del (body_dict['aggs'])
+
+#         if (len(body_dict['search_after']) == 0):
+#             del (body_dict['search_after'])
+#         elif (len(body_dict['search_after']) == 1):
+#             if (body_dict['search_after'][0] is None):
+#                 del (body_dict['search_after'])
+
+#         if (len(body_dict['sort']) == 1):
+#             if (body_dict['sort'][0] == {}):
+#                 body_dict['sort'] = [{'_id': 'asc'}]
+
+#         if (len(body_dict['filter']) == 0):
+#             del (body_dict['filter'])
+
+#         resp = es.client.search(index=index, body=body_dict)
+
+#         # returns raw elasticsearch response
+#         return resp
 
 
-@app.post("/samples/extendedSearch", tags=["SRA", "Search"])
-def extended_samples_search(body: ExtendedSearch):
-    return body.do_search('sra_sample')
+# @app.post("/studies/extendedSearch", tags=["SRA", "Search"])
+# def extended_study_search(body: ExtendedSearch):
+#     return body.do_search('sra_study')
 
 
-@app.post("/experiments/extendedSearch", tags=["SRA", "Search"])
-def extended_experiment_search(body: ExtendedSearch):
-    return body.do_search('sra_experiment')
+# @app.post("/samples/extendedSearch", tags=["SRA", "Search"])
+# def extended_samples_search(body: ExtendedSearch):
+#     return body.do_search('sra_sample')
 
 
-@app.post("/runs/extendedSearch", tags=["SRA", "Search"])
-def extended_study_search(body: ExtendedSearch):
-    return body.do_search('sra_run')
+# @app.post("/experiments/extendedSearch", tags=["SRA", "Search"])
+# def extended_experiment_search(body: ExtendedSearch):
+#     return body.do_search('sra_experiment')
+
+
+# @app.post("/runs/extendedSearch", tags=["SRA", "Search"])
+# def extended_study_search(body: ExtendedSearch):
+#     return body.do_search('sra_run')
 
 
 def abc(mappings):
