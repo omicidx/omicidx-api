@@ -55,3 +55,49 @@ Example test file, see `tests/test_app.py`.
 docker build -t seandavi/omicidx_fastapi .
 docker run -p 9080:80 seandavi/omicidx_fastapi
 ```
+
+## Kubernetes
+
+### secrets
+
+The config file contains all the secrets. 
+
+```
+kubectl create secret generic omicidx-config --from-file=../omicidx-config.toml
+```
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omicidx-fastapi
+  labels:
+    app: omicidx-fastapi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: omicidx-fastapi
+  template:
+    metadata:
+      labels:
+        app: omicidx-fastapi
+    spec:
+      volumes:
+        - name: omicidx-api
+          secret:
+            secretName: omicidx-config
+      containers:
+      - name: omicidx-fastapi
+        image: gcr.io/isb-cgc-01-0006/omicidx-fastapi
+        ports:
+          - containerPort: 80
+        volumeMounts:
+          - name: omicidx-config
+            readOnly: true
+            mountPath: "/etc/omicidx-api"
+		env:
+		  - name: OMICIDX_CONFIG_FILE
+          value: '/etc/omicidx-api/omicidx-config'
+
+```
