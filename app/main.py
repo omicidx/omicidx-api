@@ -1,6 +1,8 @@
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
+from .response_models import ResponseModel
+
 from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
 from pydantic import (BaseModel, ValidationError, validator, Schema)
 from starlette.responses import RedirectResponse
@@ -257,33 +259,32 @@ class SimpleQueryStringSearch():
             },
             "success": resp.success()
         }
-
-
-@app.get("/studies/search", tags=['SRA'])
+    
+@app.get("/studies/search", tags=['SRA'], response_model=ResponseModel)
 async def search_studies(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_study')
 
 
-@app.get("/experiments/search", tags=['SRA'])
+@app.get("/experiments/search", tags=['SRA'], response_model=ResponseModel)
 async def search_experiments(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_experiment')
 
 
-@app.get("/runs/search", tags=['SRA'])
+@app.get("/runs/search", tags=['SRA'], response_model=ResponseModel)
 async def search_runs(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_run')
 
 
-@app.get("/samples/search", tags=['SRA'])
+@app.get("/samples/search", tags=['SRA'], response_model=ResponseModel)
 async def search_samples(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_sample')
 
 
-@app.get("/biosample/search", tags=['Biosample'])
+@app.get("/biosample/search", tags=['Biosample'], response_model=ResponseModel)
 async def search_biosamples(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('biosample')
