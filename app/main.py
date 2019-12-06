@@ -14,7 +14,7 @@ import elasticsearch
 from .response_models import ResponseModel
 from .request_models import Facet
 from .elastic_connection import connections
-from .elastic_utils import get_mapping_properties
+from .elastic_utils import (get_mapping_properties, get_flattened_mapping_from_index)
 
 #from .schema import schema
 
@@ -465,4 +465,4 @@ def abc(mappings):
 
 @app.get("/_mapping/{entity}")
 def mapping(entity: str) -> dict:
-    return get_mapping_properties('sra_'+entity)
+    return get_flattened_mapping_from_index('sra_'+entity)
