@@ -1,8 +1,6 @@
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
-from .response_models import ResponseModel
-
 from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
 from pydantic import (BaseModel, ValidationError, validator, Schema)
 from starlette.responses import RedirectResponse
@@ -13,7 +11,10 @@ from typing import List, Any
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
+from .response_models import ResponseModel
+from .request_models import Facet
 from .elastic_connection import connections
+from .elastic_utils import get_mapping_properties
 
 #from .schema import schema
 
@@ -103,7 +104,7 @@ import datetime
 #m = list(es.client.indices.get_mapping(
 #    'sra_experiment').values())[0]['mappings']['properties']
 
-m = list(Index('sra_experiment').get_mapping().values())[0]['mappings']['properties']
+m = get_mapping_properties('sra_experiment')
 
 def mappings(x):
     z = {}
@@ -153,8 +154,6 @@ async def get_experiment_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_experiment')
 
-
-from .request_models import Facet
 
 class SimpleQueryStringSearch():
     """Basic lucene query string search
@@ -466,4 +465,4 @@ def abc(mappings):
 
 @app.get("/_mapping/{entity}")
 def mapping(entity: str) -> dict:
-    return list(Index('sra_'+entity).get_mapping().values())[0]['mappings']['properties']
+    return get_mapping_properties('sra_'+entity)
