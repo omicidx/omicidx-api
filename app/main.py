@@ -10,9 +10,10 @@ from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
 from starlette.graphql import GraphQLApp
 from typing import List, Any
-from .esclient import ESClient
-from elasticsearch_dsl import Search, connections
+from elasticsearch_dsl import Search, Index
 import elasticsearch
+
+from .elastic_connection import connections
 
 #from .schema import schema
 
@@ -22,48 +23,15 @@ import omicidx.sra.pydantic_models as p
 from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(title='OmicIDX',
-              version='1.0',
+              version='0.99',
               description="""
 
-## What is this?
+The OmicIDX API documentation is available in two forms:
 
-This is the OmicIDX API for accessing and analyzing omics metadata.
+- [OpenAPI/Swagger Interactive](/docs)
+- [ReDoc (more readable in some ways)](/redoc)
 
-## Background
-
-The practice of Data Science often starts with finding, extracting,
-and organizing the data into systems that are fit for purpose. With
-the growth of genomics data resources, there are opportunities for
-large scale data reuse. Furthermore, the corpus of so-called
-"metadata" that detail the biological materials, experimental
-variables, and protocols and methods is now a large and rich dataset
-itself.
-
-## OmicIDX
-
-The OmicIDX project collects disparate metadata from public genomics
-data repositories and transforms it into several forms that render it
-fit-for-purpose for large-scale and granular processing. Tasks such as
-indexing and searching, metadata enrichment with ontologies, and
-natural language processing all benefit from data resources that are
-available in bulk and computable formats.
-
-
-## What is an API 
-
-A web-based Application Programming Interface (API) uses the same
-technology as your browser. However, rather than you directing your
-browser to access information, an API is typically accessed by another
-piece of sofware. This software sends a request to the API (just a
-webserver running somewhere) in a format that the server will
-understand. The server then processes the request and returns a
-result, typically not in the form that is meant to be viewed on the
-screen but instead in a format that computers (and often humans) can
-read.
 """)
-
-es = ESClient()
-connections.add_connection('default', es.client)
 
 # CORS
 app.add_middleware(
@@ -92,9 +60,11 @@ class GetByAccession():
 
     def get(self, index, doc_type="_doc"):
         try:
-            return es.client.get(index=index,
-                                 doc_type=doc_type,
-                                 id=self.accession)['_source']
+            return connections.get_connection().get(
+                index=index,
+                doc_type=doc_type,
+                id=self.accession
+            )['_source']
         except elasticsearch.exceptions.NotFoundError as e:
             raise HTTPException(
                 status_code=404,
@@ -119,8 +89,9 @@ async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_run')
 
 
-@app.get("/run/{accession}", tags=['Biosample'], response_model=p.SraRun)
-async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
+# TODO: implement biosample pydandic model
+@app.get("/biosample/{accession}", tags=['Biosample'] )
+async def get_biosample_accession(getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('biosample')
 
 
@@ -129,9 +100,10 @@ import pydantic
 from typing import Dict, List
 import datetime
 
-m = list(es.client.indices.get_mapping(
-    'sra_experiment').values())[0]['mappings']['properties']
+#m = list(es.client.indices.get_mapping(
+#    'sra_experiment').values())[0]['mappings']['properties']
 
+m = list(Index('sra_experiment').get_mapping().values())[0]['mappings']['properties']
 
 def mappings(x):
     z = {}
@@ -182,6 +154,8 @@ async def get_experiment_accession(
     return getter.get('sra_experiment')
 
 
+from .request_models import Facet
+
 class SimpleQueryStringSearch():
     """Basic lucene query string search
     """
@@ -199,7 +173,7 @@ class SimpleQueryStringSearch():
                              'term faceting is used here, meaning '
                              'that fields that are short text and repeated '
                              'across records will be binned and counted.'),
-                example=['center_name.keyword'],
+                example=['center_name'],
             )):
         self.q = q
         self.size = size
@@ -237,7 +211,10 @@ class SimpleQueryStringSearch():
             # these update the s object in place
             # as opposed to the query method(s) that
             # return a new copied object
-            s.aggs.bucket(agg, 'terms', field=agg)
+            if agg.endswith('.keyword'):
+                s.aggs.bucket(agg, 'terms', field=agg)
+            else:
+                s.aggs.bucket(agg, 'terms', field=agg+'.keyword')                
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
             s = s.extra(
@@ -487,7 +464,6 @@ def abc(mappings):
     return fields
 
 
-@app.get("/_mapping")
-def mapping():
-    return (list(es.client.indices.get_mapping('sra_experiment').values())[0]
-            ['mappings']['properties'])
+@app.get("/_mapping/{entity}")
+def mapping(entity: str) -> dict:
+    return list(Index('sra_'+entity).get_mapping().values())[0]['mappings']['properties']
