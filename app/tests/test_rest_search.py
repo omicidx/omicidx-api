@@ -1,15 +1,14 @@
-import requests
-import pytest
+from starlette.testclient import TestClient
 
-host = 'http://localhost:8000/'
+from ..main import app
+
+client = TestClient(app)
 
 def search_endpoint(endpoint, q, size=10):
-    url = host + f'{endpoint}/search'
-    res = requests.get(url, params = {"q": q, "size": size})
-    assert(res.status_code == 200)
-    assert(isinstance(res.json(), dict))
-    retval = res.json()
-    return retval
+    response = client.get(f"/{endpoint}/search", params = {"q": q, "size": size})
+    assert response.status_code == 200
+    json = response.json()
+    return json
 
 
 def test_search_study():

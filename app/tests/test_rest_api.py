@@ -1,5 +1,8 @@
-import requests
-import pytest
+from starlette.testclient import TestClient
+
+from ..main import app
+
+client = TestClient(app)
 
 host = 'http://localhost:8000/'
 STUDY_ACCESSION = 'SRP002730'
@@ -7,14 +10,11 @@ EXPERIMENT_ACCESSION = 'SRX000273'
 RUN_ACCESSION = 'SRR000273'
 SAMPLE_ACCESSION = 'SRS000273'
 
-
-def get_endpoint(endpoint, id):
-    url = host + f'{endpoint}/{id}'
-    res = requests.get(url)
-    assert(res.status_code == 200)
-    assert(isinstance(res.json(), dict))
-    retval = res.json()
-    assert(retval['accession'] == id)
+def get_endpoint(entity, accession):
+    response = client.get("/{}/{}".format(entity, accession))
+    assert response.status_code == 200
+    json = response.json()
+    assert json['accession'] == accession
 
 
 def test_get_study():
