@@ -5,15 +5,17 @@ create a cursor that can be encoded/decoded for use in
 search_after (or search_before) queries.
 
 >>> encode_cursor([{'_score':'desc'},{'accession': 'asc'}],'SRP00001')
-b'X3Njb3JlfHxkZXNjfHx8YWNjZXNzaW9ufHxhc2N8fHx8U1JQMDAwMDE=\n'
+'X3Njb3JlfHxkZXNjfHx8YWNjZXNzaW9ufHxhc2N8fHx8U1JQMDAwMDE='
 
->>>  decode_cursor(b'X3Njb3JlfHxkZXNjfHx8YWNjZXNzaW9ufHxhc2N8fHx8U1JQMDAwMDE=\n')
-([{b'_score': b'desc'}, {b'accession': b'asc'}], b'SRP00001')
+>>>  decode_cursor(b'X3Njb3JlfHxkZXNjfHx8YWNjZXNzaW9ufHxhc2N8fHx8U1JQMDAwMDE=')
+([{'_score': 'desc'}, {'accession': 'asc'}], 'SRP00001')
 """
 import base64
 
 
 def encode_cursor(sort_dict: list, resp) -> str:
+    """encode info to a cursor string"""
+    
     sort_items = []
     for d in sort_dict:
         sort_items.append("{}||{}".format(*d.popitem()))
@@ -23,6 +25,8 @@ def encode_cursor(sort_dict: list, resp) -> str:
 
 
 def decode_cursor(cursor_string: str):
+    """Decode a cursor string to component parts"""
+    
     (kvs, id) = base64.b64decode(cursor_string.encode('UTF-8')).split(b"||||")
     sort_items = kvs.split(b'|||')
     sort_dict = []

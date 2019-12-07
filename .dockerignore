@@ -1,0 +1,6 @@
+virt-dev
+virt
+kubernetes
+*.ipynb
+.git
+.env
