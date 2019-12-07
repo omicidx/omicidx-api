@@ -84,6 +84,20 @@ class GetSubResource():
         self.size = size
         self.cursor = cursor
 
+    def _create_search_after(self, hit):
+        """Create a cursor
+        
+        currently, implemented as simply using the 'id' field. 
+        """
+        from .cursor import encode_cursor
+        # TODO: implement sorting here
+        return encode_cursor(sort_dict=[{"_id": "asc"}], resp=hit.meta.id)
+
+    def _resolve_search_after(self, cursor_string):
+        from .cursor import decode_cursor
+        (sort_dict, id) = decode_cursor(cursor_string)
+        return (sort_dict, id)
+
     def get(self, resource, subresource, doc_type='_doc'):
         try:
             connections.get_connection().get(
@@ -101,17 +115,16 @@ class GetSubResource():
              .index(subresource)
              .update_from_dict({"query":{'term':{resource_name+".accession.keyword":self.accession}}}))
         s = s.sort({"_id": {"order": "asc"}})
-#        if (self.cursor is not None):
-#            s = s.extra(
-#                search_after=[self._resolve_search_after(self.cursor)[1]])
+        if (self.cursor is not None):
+            s = s.extra(
+                search_after=[self._resolve_search_after(self.cursor)[1]])
         print(s.to_dict())
         resp = s[0:self.size].execute()
         hits = list([res for res in resp])
-        print(hits)
         # cursor
         search_after = None
-#        if (len(hits) == self.size and self.size > 0):
-#            search_after = self._create_search_after(hits[-1])
+        if (len(hits) == self.size and self.size > 0):
+            search_after = self._create_search_after(hits[-1])
 
         return {
             "hits": [res.to_dict() for res in resp],
