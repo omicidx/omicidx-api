@@ -75,17 +75,96 @@ class GetByAccession():
                 detail=f"Accession {self.accession} not found in index {index}."
             )
 
+class GetSubResource():
+    def __init__(self,
+                 accession: str = Path(...,description="An accession for lookup"),
+                 size: int = Query(10, gte=0, lt=1000, example=10),
+                 cursor: str = None):
+        self.accession = accession
+        self.size = size
+        self.cursor = cursor
+
+    def get(self, resource, subresource, doc_type='_doc'):
+        try:
+            connections.get_connection().get(
+                index=resource,
+                doc_type=doc_type,
+                id=self.accession
+            )['_source']
+        except elasticsearch.exceptions.NotFoundError as e:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Accession {self.accession} not found in index {resource}."
+            )
+        resource_name = resource.replace('sra_','')
+        s = (Search()
+             .index(subresource)
+             .update_from_dict({"query":{'term':{resource_name+".accession.keyword":self.accession}}}))
+        s = s.sort({"_id": {"order": "asc"}})
+#        if (self.cursor is not None):
+#            s = s.extra(
+#                search_after=[self._resolve_search_after(self.cursor)[1]])
+        print(s.to_dict())
+        resp = s[0:self.size].execute()
+        hits = list([res for res in resp])
+        print(hits)
+        # cursor
+        search_after = None
+#        if (len(hits) == self.size and self.size > 0):
+#            search_after = self._create_search_after(hits[-1])
+
+        return {
+            "hits": [res.to_dict() for res in resp],
+            "cursor": search_after,
+            "stats": {
+                "total": resp.hits.total.value,
+                "took": resp.took
+            },
+            "success": resp.success()
+        }
+
+        
 
 @app.get("/study/{accession}", tags=['SRA'], response_model=p.SraStudy)
 async def get_study_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_study')
 
+@app.get("/study/{accession}/runs", tags=['SRA'])
+async def get_study_runs(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_run')
+
+@app.get("/study/{accession}/experiments", tags=['SRA'])
+async def get_study_experiments(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_experiment')
+
+@app.get("/study/{accession}/samples", tags=['SRA'])
+async def get_study_samples(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_sample')
+
 
 @app.get("/sample/{accession}", tags=['SRA'], response_model=p.SraSample)
 async def get_sample_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_sample')
+
+@app.get("/sample/{accession}/experiments", tags=['SRA'])
+async def get_sample_experiments(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_sample', 'sra_experiment')
+
+@app.get("/sample/{accession}/runs", tags=['SRA'])
+async def get_sample_runs(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_sample', 'sra_run')
+
+@app.get("/experiment/{accession}/runs", tags=['SRA'])
+async def get_experiment_runs(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_experiment', 'sra_run')
 
 
 @app.get("/run/{accession}", tags=['SRA'], response_model=p.SraRun)
