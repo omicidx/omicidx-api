@@ -11,11 +11,11 @@ from typing import (Dict, List, Any, Tuple)
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
-
 from .field_descriptors import fulltext_fields
 from .response_models import (ResponseModel, MappingResults)
 from .elastic_connection import connections
-from .elastic_utils import (get_mapping_properties, get_flattened_mapping_from_index)
+from .elastic_utils import (get_mapping_properties,
+                            get_flattened_mapping_from_index)
 
 import logging
 
@@ -65,19 +65,18 @@ class GetByAccession():
     def get(self, index, doc_type="_doc"):
         try:
             return connections.get_connection().get(
-                index=index,
-                doc_type=doc_type,
-                id=self.accession
-            )['_source']
+                index=index, doc_type=doc_type, id=self.accession)['_source']
         except elasticsearch.exceptions.NotFoundError as e:
             raise HTTPException(
                 status_code=404,
                 detail=f"Accession {self.accession} not found in index {index}."
             )
 
+
 class GetSubResource():
     def __init__(self,
-                 accession: str = Path(...,description="An accession for lookup"),
+                 accession: str = Path(...,
+                                       description="An accession for lookup"),
                  size: int = Query(10, gte=0, lt=1000, example=10),
                  cursor: str = None):
         self.accession = accession
@@ -100,20 +99,22 @@ class GetSubResource():
 
     def get(self, resource, subresource, doc_type='_doc'):
         try:
-            connections.get_connection().get(
-                index=resource,
-                doc_type=doc_type,
-                id=self.accession
-            )['_source']
+            connections.get_connection().get(index=resource,
+                                             doc_type=doc_type,
+                                             id=self.accession)['_source']
         except elasticsearch.exceptions.NotFoundError as e:
             raise HTTPException(
                 status_code=404,
-                detail=f"Accession {self.accession} not found in index {resource}."
-            )
-        resource_name = resource.replace('sra_','')
-        s = (Search()
-             .index(subresource)
-             .update_from_dict({"query":{'term':{resource_name+".accession.keyword":self.accession}}}))
+                detail=
+                f"Accession {self.accession} not found in index {resource}.")
+        resource_name = resource.replace('sra_', '')
+        s = (Search().index(subresource).update_from_dict({
+            "query": {
+                'term': {
+                    resource_name + ".accession.keyword": self.accession
+                }
+            }
+        }))
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
             s = s.extra(
@@ -136,26 +137,26 @@ class GetSubResource():
             "success": resp.success()
         }
 
-        
 
 @app.get("/study/{accession}", tags=['SRA'], response_model=p.SraStudy)
 async def get_study_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_study')
 
+
 @app.get("/study/{accession}/runs", tags=['SRA'])
-async def get_study_runs(
-        getter: GetSubResource = Depends(GetSubResource)):
+async def get_study_runs(getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_study', 'sra_run')
+
 
 @app.get("/study/{accession}/experiments", tags=['SRA'])
 async def get_study_experiments(
         getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_study', 'sra_experiment')
 
+
 @app.get("/study/{accession}/samples", tags=['SRA'])
-async def get_study_samples(
-        getter: GetSubResource = Depends(GetSubResource)):
+async def get_study_samples(getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_study', 'sra_sample')
 
 
@@ -164,15 +165,17 @@ async def get_sample_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_sample')
 
+
 @app.get("/sample/{accession}/experiments", tags=['SRA'])
 async def get_sample_experiments(
         getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_sample', 'sra_experiment')
 
+
 @app.get("/sample/{accession}/runs", tags=['SRA'])
-async def get_sample_runs(
-        getter: GetSubResource = Depends(GetSubResource)):
+async def get_sample_runs(getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_sample', 'sra_run')
+
 
 @app.get("/experiment/{accession}/runs", tags=['SRA'])
 async def get_experiment_runs(
@@ -186,8 +189,9 @@ async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
 
 
 # TODO: implement biosample pydandic model
-@app.get("/biosample/{accession}", tags=['Biosample'] )
-async def get_biosample_accession(getter: GetByAccession = Depends(GetByAccession)):
+@app.get("/biosample/{accession}", tags=['Biosample'])
+async def get_biosample_accession(
+        getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('biosample')
 
 
@@ -199,6 +203,7 @@ import datetime
 #    'sra_experiment').values())[0]['mappings']['properties']
 
 m = get_mapping_properties('sra_experiment')
+
 
 def mappings(x):
     z = {}
@@ -310,8 +315,8 @@ class SimpleQueryStringSearch():
                 logging.info(f'skipping agg {agg}')
                 continue
             if not agg.endswith('.keyword'):
-                agg = agg+'.keyword'
-            s.aggs.bucket(agg.replace('.keyword',''), 'terms', field=agg)
+                agg = agg + '.keyword'
+            s.aggs.bucket(agg.replace('.keyword', ''), 'terms', field=agg)
 
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
@@ -334,7 +339,8 @@ class SimpleQueryStringSearch():
             },
             "success": resp.success()
         }
-    
+
+
 @app.get("/studies/search", tags=['SRA'], response_model=ResponseModel)
 async def search_studies(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
@@ -562,15 +568,17 @@ def abc(mappings):
     return fields
 
 
-@app.get("/_mapping/{entity}", response_model = MappingResults)
+@app.get("/_mapping/{entity}", response_model=MappingResults)
 def mapping(entity: str) -> MappingResults:
-    return get_flattened_mapping_from_index('sra_'+entity)
+    return get_flattened_mapping_from_index('sra_' + entity)
 
-@app.get("/facets/{index}", response_model = List[str])
+
+@app.get("/facets/{index}", response_model=List[str])
 def available_facets_by_index(index):
     """Return the available facet fields for an index"""
-    
+
     available_fields = get_flattened_mapping_from_index(index)
+
     def should_be_facet_field(field: Tuple[str, dict]):
         """Use as filter for fields to find available facet fields
 
@@ -585,7 +593,7 @@ def available_facets_by_index(index):
         bool
             True if to include field as aggregatable, False otherwise
         """
-        k, v = field # unpack tuple
+        k, v = field  # unpack tuple
 
         # right now, only keyword fields (of type text) qualify
         if not (v['type'] == 'text' and v['keyword']):
@@ -593,10 +601,10 @@ def available_facets_by_index(index):
         # filter out known full text fields
         # TODO: these should be changed in the elasticsearch mappings
         for ftf in fulltext_fields:
-            if(k.endswith(ftf)):
+            if (k.endswith(ftf)):
                 return False
         return True
+
     facets = dict(filter(should_be_facet_field, available_fields.items()))
     facet_names = list(facets.keys())
     return facet_names
-    
