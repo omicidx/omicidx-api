@@ -28,5 +28,5 @@ spec:
             readOnly: true
             mountPath: "/etc/omicidx-api"
         env:
-          - name: OMICIDX_CONFIG_FILE
-            value: '/etc/omicidx-api/omicidx-config'
+          - name: OMICIDX_CONFIGURATION_FILE
+            value: "/etc/omicidx-api/omicidx-config.toml"
