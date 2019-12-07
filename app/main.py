@@ -11,7 +11,7 @@ from typing import List, Any
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
-from .response_models import ResponseModel
+from .response_models import (ResponseModel, MappingResults)
 from .elastic_connection import connections
 from .elastic_utils import (get_mapping_properties, get_flattened_mapping_from_index)
 
@@ -462,6 +462,6 @@ def abc(mappings):
     return fields
 
 
-@app.get("/_mapping/{entity}")
-def mapping(entity: str) -> dict:
+@app.get("/_mapping/{entity}", response_model = MappingResults)
+def mapping(entity: str) -> MappingResults:
     return get_flattened_mapping_from_index('sra_'+entity)
