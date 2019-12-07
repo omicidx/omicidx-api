@@ -12,7 +12,6 @@ from elasticsearch_dsl import Search, Index
 import elasticsearch
 
 from .response_models import ResponseModel
-from .request_models import Facet
 from .elastic_connection import connections
 from .elastic_utils import (get_mapping_properties, get_flattened_mapping_from_index)
 
