@@ -7,13 +7,17 @@ from starlette.responses import RedirectResponse
 from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
 from starlette.graphql import GraphQLApp
-from typing import List, Any
+from typing import (Dict, List, Any, Tuple)
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
+
+from .field_descriptors import fulltext_fields
 from .response_models import (ResponseModel, MappingResults)
 from .elastic_connection import connections
 from .elastic_utils import (get_mapping_properties, get_flattened_mapping_from_index)
+
+import logging
 
 #from .schema import schema
 
@@ -97,7 +101,6 @@ async def get_biosample_accession(getter: GetByAccession = Depends(GetByAccessio
 
 from pydantic import Schema, create_model
 import pydantic
-from typing import Dict, List
 import datetime
 
 #m = list(es.client.indices.get_mapping(
@@ -205,14 +208,19 @@ class SimpleQueryStringSearch():
             })
         # s = search.index(index).query('query_string',
         #                               query=self.q)[0:self.size]
+        available_facets = available_facets_by_index(index)
+        print(available_facets)
         for agg in self.facets:
             # these update the s object in place
             # as opposed to the query method(s) that
             # return a new copied object
-            if agg.endswith('.keyword'):
-                s.aggs.bucket(agg, 'terms', field=agg)
-            else:
-                s.aggs.bucket(agg, 'terms', field=agg+'.keyword')                
+            if not agg in available_facets:
+                logging.info(f'skipping agg {agg}')
+                continue
+            if not agg.endswith('.keyword'):
+                agg = agg+'.keyword'
+            s.aggs.bucket(agg.replace('.keyword',''), 'terms', field=agg)
+
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
             s = s.extra(
@@ -465,3 +473,38 @@ def abc(mappings):
 @app.get("/_mapping/{entity}", response_model = MappingResults)
 def mapping(entity: str) -> MappingResults:
     return get_flattened_mapping_from_index('sra_'+entity)
+
+@app.get("/facets/{index}", response_model = List[str])
+def available_facets_by_index(index):
+    """Return the available facet fields for an index"""
+    
+    available_fields = get_flattened_mapping_from_index(index)
+    def should_be_facet_field(field: Tuple[str, dict]):
+        """Use as filter for fields to find available facet fields
+
+        Parameters
+        ----------
+        field: Tuple[str, dict]
+            first field is name of field and the dict describes the
+            type, etc.
+        
+        Returns
+        -------
+        bool
+            True if to include field as aggregatable, False otherwise
+        """
+        k, v = field # unpack tuple
+
+        # right now, only keyword fields (of type text) qualify
+        if not (v['type'] == 'text' and v['keyword']):
+            return False
+        # filter out known full text fields
+        # TODO: these should be changed in the elasticsearch mappings
+        for ftf in fulltext_fields:
+            if(k.endswith(ftf)):
+                return False
+        return True
+    facets = dict(filter(should_be_facet_field, available_fields.items()))
+    facet_names = list(facets.keys())
+    return facet_names
+    
