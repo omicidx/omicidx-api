@@ -11,19 +11,22 @@ from typing import (Dict, List, Any, Tuple)
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
-from .field_descriptors import fulltext_fields
 from .response_models import (ResponseModel, MappingResults)
+from .field_descriptors import fulltext_fields
 from .elastic_connection import connections
 from .elastic_utils import (get_mapping_properties,
-                            get_flattened_mapping_from_index)
+                            get_flattened_mapping_from_index,
+)
+from .routers import (sra, biosample)
 
 import logging
+
 
 #from .schema import schema
 
 # REST API models
 import omicidx.sra.pydantic_models as p
-
+from .dependers import (GetByAccession, GetSubResource, SimpleQueryStringSearch)
 from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(title='OmicIDX',
@@ -45,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(sra.router, prefix='/sra')
+app.include_router(biosample.router, prefix='/biosample')
 
 #from .schema.schema import schema
 #app.add_route('/graphql', GraphQLApp(schema=schema))
@@ -56,143 +61,7 @@ async def home(request: Request):
     return RedirectResponse(url='/docs')
 
 
-class GetByAccession():
-    def __init__(self,
-                 accession: str = Path(...,
-                                       description="An accession for lookup")):
-        self.accession = accession
 
-    def get(self, index, doc_type="_doc"):
-        try:
-            return connections.get_connection().get(
-                index=index, doc_type=doc_type, id=self.accession)['_source']
-        except elasticsearch.exceptions.NotFoundError as e:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Accession {self.accession} not found in index {index}."
-            )
-
-
-class GetSubResource():
-    def __init__(self,
-                 accession: str = Path(...,
-                                       description="An accession for lookup"),
-                 size: int = Query(10, gte=0, lt=1000, example=10),
-                 cursor: str = None):
-        self.accession = accession
-        self.size = size
-        self.cursor = cursor
-
-    def _create_search_after(self, hit):
-        """Create a cursor
-        
-        currently, implemented as simply using the 'id' field. 
-        """
-        from .cursor import encode_cursor
-        # TODO: implement sorting here
-        return encode_cursor(sort_dict=[{"_id": "asc"}], resp=hit.meta.id)
-
-    def _resolve_search_after(self, cursor_string):
-        from .cursor import decode_cursor
-        (sort_dict, id) = decode_cursor(cursor_string)
-        return (sort_dict, id)
-
-    def get(self, resource, subresource, doc_type='_doc'):
-        try:
-            connections.get_connection().get(index=resource,
-                                             doc_type=doc_type,
-                                             id=self.accession)['_source']
-        except elasticsearch.exceptions.NotFoundError as e:
-            raise HTTPException(
-                status_code=404,
-                detail=
-                f"Accession {self.accession} not found in index {resource}.")
-        resource_name = resource.replace('sra_', '')
-        s = (Search().index(subresource).update_from_dict({
-            "query": {
-                'term': {
-                    resource_name + ".accession.keyword": self.accession
-                }
-            }
-        }))
-        s = s.sort({"_id": {"order": "asc"}})
-        if (self.cursor is not None):
-            s = s.extra(
-                search_after=[self._resolve_search_after(self.cursor)[1]])
-        print(s.to_dict())
-        resp = s[0:self.size].execute()
-        hits = list([res for res in resp])
-        # cursor
-        search_after = None
-        if (len(hits) == self.size and self.size > 0):
-            search_after = self._create_search_after(hits[-1])
-
-        return {
-            "hits": [res.to_dict() for res in resp],
-            "cursor": search_after,
-            "stats": {
-                "total": resp.hits.total.value,
-                "took": resp.took
-            },
-            "success": resp.success()
-        }
-
-
-@app.get("/study/{accession}", tags=['SRA'], response_model=p.SraStudy)
-async def get_study_accession(
-        getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_study')
-
-
-@app.get("/study/{accession}/runs", tags=['SRA'])
-async def get_study_runs(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_run')
-
-
-@app.get("/study/{accession}/experiments", tags=['SRA'])
-async def get_study_experiments(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_experiment')
-
-
-@app.get("/study/{accession}/samples", tags=['SRA'])
-async def get_study_samples(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_sample')
-
-
-@app.get("/sample/{accession}", tags=['SRA'], response_model=p.SraSample)
-async def get_sample_accession(
-        getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_sample')
-
-
-@app.get("/sample/{accession}/experiments", tags=['SRA'])
-async def get_sample_experiments(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_sample', 'sra_experiment')
-
-
-@app.get("/sample/{accession}/runs", tags=['SRA'])
-async def get_sample_runs(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_sample', 'sra_run')
-
-
-@app.get("/experiment/{accession}/runs", tags=['SRA'])
-async def get_experiment_runs(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_experiment', 'sra_run')
-
-
-@app.get("/run/{accession}", tags=['SRA'], response_model=p.SraRun)
-async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_run')
-
-
-# TODO: implement biosample pydandic model
-@app.get("/biosample/{accession}", tags=['Biosample'])
-async def get_biosample_accession(
-        getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('biosample')
 
 
 from pydantic import Schema, create_model
@@ -246,129 +115,13 @@ def mappings(x):
     return (z)
 
 
-@app.get("/experiment/{accession}",
-         tags=['SRA'],
-         response_model=create_model('Experiment1', **mappings(m)))
-async def get_experiment_accession(
-        getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_experiment')
-
-
-class SimpleQueryStringSearch():
-    """Basic lucene query string search
-    """
-    def __init__(
-            self,
-            q: str = Query(None,
-                           description="The query, using lucene query syntax",
-                           example="cancer AND published:[2018-01-01 TO *]"),
-            size: int = Query(10, gte=0, lt=1000, example=10),
-            cursor: str = None,
-            facets: List[str] = Query(
-                [],
-                description=('A list of strings identifying fields '
-                             'for faceted search results. Simple '
-                             'term faceting is used here, meaning '
-                             'that fields that are short text and repeated '
-                             'across records will be binned and counted.'),
-                example=['center_name'],
-            )):
-        self.q = q
-        self.size = size
-        self.facets = facets
-        self.cursor = cursor
-
-    def _create_search_after(self, hit):
-        """Create a cursor
-        
-        currently, implemented as simply using the 'id' field. 
-        """
-        from .cursor import encode_cursor
-        # TODO: implement sorting here
-        return encode_cursor(sort_dict=[{"_id": "asc"}], resp=hit.meta.id)
-
-    def _resolve_search_after(self, cursor_string):
-        from .cursor import decode_cursor
-        (sort_dict, id) = decode_cursor(cursor_string)
-        return (sort_dict, id)
-
-    def search(self, index):
-        searcher = Search(index=index)
-        from .luqum_helper import (get_query_builder, get_query_translation)
-        s = searcher.update_from_dict({"track_total_hits": True})[0:self.size]
-        if (self.q is not None):
-            builder = get_query_builder(index)
-            translation = get_query_translation(builder, self.q)
-            s = searcher.update_from_dict({
-                "track_total_hits": True,
-                "query": translation
-            })
-        # s = search.index(index).query('query_string',
-        #                               query=self.q)[0:self.size]
-        available_facets = available_facets_by_index(index)
-        print(available_facets)
-        for agg in self.facets:
-            # these update the s object in place
-            # as opposed to the query method(s) that
-            # return a new copied object
-            if not agg in available_facets:
-                logging.info(f'skipping agg {agg}')
-                continue
-            if not agg.endswith('.keyword'):
-                agg = agg + '.keyword'
-            s.aggs.bucket(agg.replace('.keyword', ''), 'terms', field=agg)
-
-        s = s.sort({"_id": {"order": "asc"}})
-        if (self.cursor is not None):
-            s = s.extra(
-                search_after=[self._resolve_search_after(self.cursor)[1]])
-        resp = s[0:self.size].execute()
-        hits = list([res for res in resp])
-        # cursor
-        search_after = None
-        if (len(hits) == self.size and self.size > 0):
-            search_after = self._create_search_after(hits[-1])
-
-        return {
-            "hits": [res.to_dict() for res in resp],
-            "facets": resp.aggs.to_dict(),
-            "cursor": search_after,
-            "stats": {
-                "total": resp.hits.total.value,
-                "took": resp.took
-            },
-            "success": resp.success()
-        }
-
-
-@app.get("/studies/search", tags=['SRA'], response_model=ResponseModel)
-async def search_studies(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('sra_study')
-
-
-@app.get("/experiments/search", tags=['SRA'], response_model=ResponseModel)
-async def search_experiments(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('sra_experiment')
-
-
-@app.get("/runs/search", tags=['SRA'], response_model=ResponseModel)
-async def search_runs(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('sra_run')
-
-
-@app.get("/samples/search", tags=['SRA'], response_model=ResponseModel)
-async def search_samples(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('sra_sample')
-
-
-@app.get("/biosample/search", tags=['Biosample'], response_model=ResponseModel)
-async def search_biosamples(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('biosample')
+# moved to routers
+# @app.get("/experiment/{accession}",
+#          tags=['SRA'],
+#          response_model=create_model('Experiment1', **mappings(m)))
+# async def get_experiment_accession(
+#         getter: GetByAccession = Depends(GetByAccession)):
+#     return getter.get('sra_experiment')
 
 
 # @app.get("/sql", tags=["SQL"])
@@ -557,7 +310,6 @@ async def search_biosamples(
 
 
 def abc(mappings):
-    print(mappings)
     fields = []
     for k, v in mappings.items():
         keyword = False
@@ -568,11 +320,11 @@ def abc(mappings):
     return fields
 
 
-@app.get("/_mapping/{entity}", response_model=MappingResults)
-def mapping(entity: str) -> MappingResults:
+@app.get("/_mapping/{entity}")
+def mapping(entity: str) -> dict:
     return get_flattened_mapping_from_index('sra_' + entity)
 
-
+# TODO: this is now duplicated in elastic_utils--need to refactor
 @app.get("/facets/{index}", response_model=List[str])
 def available_facets_by_index(index):
     """Return the available facet fields for an index"""

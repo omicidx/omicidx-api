@@ -1,6 +1,8 @@
 """Just convenience functions for elasticsearch"""
 from .elastic_connection import connections
 from elasticsearch_dsl import Index
+from typing import Tuple
+from .field_descriptors import fulltext_fields
 
 def get_mapping_properties(index: str) -> dict:
     """Get the "properties" mappings from an elasticsearch index
@@ -55,7 +57,6 @@ def flatten_mapping(mapping, parent=None, nested=False):
                         ret[k]['keyword']=True
         # Just an embedded object
         else:
-            print(k, 'properties')
             ret[k]['type']='object'
             # recursively follow embedded objects
             ret.update(flatten_mapping(v['properties'], parent=k))
@@ -64,3 +65,38 @@ def flatten_mapping(mapping, parent=None, nested=False):
 
 def get_flattened_mapping_from_index(index):
     return flatten_mapping(get_mapping_properties(index))
+
+def available_facets_by_index(index):
+    """Return the available facet fields for an index"""
+
+    available_fields = get_flattened_mapping_from_index(index)
+
+    def should_be_facet_field(field: Tuple[str, dict]):
+        """Use as filter for fields to find available facet fields
+
+        Parameters
+        ----------
+        field: Tuple[str, dict]
+            first field is name of field and the dict describes the
+            type, etc.
+        
+        Returns
+        -------
+        bool
+            True if to include field as aggregatable, False otherwise
+        """
+        k, v = field  # unpack tuple
+
+        # right now, only keyword fields (of type text) qualify
+        if not (v['type'] == 'text' and v['keyword']):
+            return False
+        # filter out known full text fields
+        # TODO: these should be changed in the elasticsearch mappings
+        for ftf in fulltext_fields:
+            if (k.endswith(ftf)):
+                return False
+        return True
+
+    facets = dict(filter(should_be_facet_field, available_fields.items()))
+    facet_names = list(facets.keys())
+    return facet_names
