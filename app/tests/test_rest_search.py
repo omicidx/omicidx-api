@@ -5,7 +5,7 @@ from ..main import app
 client = TestClient(app)
 
 def search_endpoint(endpoint, q, size=10):
-    response = client.get(f"/{endpoint}/search", params = {"q": q, "size": size})
+    response = client.get(f"/sra/{endpoint}/search", params = {"q": q, "size": size})
     assert response.status_code == 200
     json = response.json()
     return json

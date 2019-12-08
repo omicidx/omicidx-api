@@ -11,7 +11,7 @@ RUN_ACCESSION = 'SRR000273'
 SAMPLE_ACCESSION = 'SRS000273'
 
 def get_endpoint(entity, accession):
-    response = client.get("/{}/{}".format(entity, accession))
+    response = client.get("/sra/{}/{}".format(entity, accession))
     assert response.status_code == 200
     json = response.json()
     assert json['accession'] == accession

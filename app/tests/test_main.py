@@ -11,7 +11,7 @@ def test_read_root():
 
 
 def _get_accession(entity, accession):
-    response = client.get("/{}/{}".format(entity, accession))
+    response = client.get("/sra/{}/{}".format(entity, accession))
     assert response.status_code == 200
     json = response.json()
     assert json['accession'] == accession
