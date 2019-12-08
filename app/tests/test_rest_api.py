@@ -1,4 +1,9 @@
+import os
+import pytest
 from starlette.testclient import TestClient
+
+if not os.getenv('OMICIDX_CONFIGURATION_FILE', False):
+    pytest.skip("skipping tests relying on config", allow_module_level=True)
 
 from ..main import app
 
