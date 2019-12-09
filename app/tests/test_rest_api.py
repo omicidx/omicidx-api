@@ -23,17 +23,17 @@ def get_endpoint(entity, accession):
 
 
 def test_get_study():
-    get_endpoint('study',STUDY_ACCESSION)
+    get_endpoint('studies',STUDY_ACCESSION)
 
 
 def test_get_experiment():
-    get_endpoint('experiment',EXPERIMENT_ACCESSION)
+    get_endpoint('experiments',EXPERIMENT_ACCESSION)
 
 
 def test_get_run():
-    get_endpoint('run',RUN_ACCESSION)
+    get_endpoint('runs',RUN_ACCESSION)
 
 
 def test_get_sample():
-    get_endpoint('sample',SAMPLE_ACCESSION)
+    get_endpoint('samples',SAMPLE_ACCESSION)
     

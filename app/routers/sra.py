@@ -8,86 +8,84 @@ from ..elastic_connection import connections
 router = APIRouter()
 
 
-@router.get("/study/{accession}", tags=['SRA'])
-async def get_study_accession(
+@router.get("/studies/{accession}", tags=['SRA'])
+async def study_by_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('sra_study')
 
 
-@router.get("/study/{accession}/runs", tags=['SRA'])
-async def get_study_runs(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_run')
-
-
-@router.get("/study/{accession}/experiments", tags=['SRA'])
-async def get_study_experiments(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_experiment')
-
-
-@router.get("/study/{accession}/samples", tags=['SRA'])
-async def get_study_samples(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_study', 'sra_sample')
-
-
-@router.get("/sample/{accession}", tags=['SRA'])
-async def get_sample_accession(
-        getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_sample')
-
-
-@router.get("/sample/{accession}/experiments", tags=['SRA'])
-async def get_sample_experiments(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_sample', 'sra_experiment')
-
-
-@router.get("/sample/{accession}/runs", tags=['SRA'])
-async def get_sample_runs(getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_sample', 'sra_run')
-
-
-@router.get("/experiment/{accession}/runs", tags=['SRA'])
-async def get_experiment_runs(
-        getter: GetSubResource = Depends(GetSubResource)):
-    return getter.get('sra_experiment', 'sra_run')
-
-
-@router.get("/run/{accession}", tags=['SRA'])
-async def get_run_accession(getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_run')
-
-
-@router.get("/experiment/{accession}", tags=['SRA'])
-async def get_experiment_accession(getter: GetByAccession = Depends(GetByAccession)):
-    return getter.get('sra_experiment')
-
-
-
-
-
-
-@router.get("/studies/search", tags=['SRA', 'Search'], response_model=ResponseModel)
-async def search_studies(
+@router.get("/studies", tags=['SRA'], response_model=ResponseModel)
+async def studies(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_study')
 
 
-@router.get("/experiments/search", tags=['SRA', 'Search'], response_model=ResponseModel)
-async def search_experiments(
+@router.get("/studies/{accession}/samples", tags=['SRA'])
+async def samples_for_study(getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_sample')
+
+
+@router.get("/studies/{accession}/experiments", tags=['SRA'])
+async def experiments_for_study(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_experiment')
+
+
+@router.get("/studies/{accession}/runs", tags=['SRA'])
+async def runs_for_study(getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_study', 'sra_run')
+
+
+@router.get("/samples/{accession}", tags=['SRA'])
+async def sample_by_accession(
+        getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_sample')
+
+
+@router.get("/samples", tags=['SRA'], response_model=ResponseModel)
+async def samples(
+        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
+    return searcher.search('sra_sample')
+
+
+@router.get("/samples/{accession}/experiments", tags=['SRA'])
+async def experiments_by_sample(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_sample', 'sra_experiment')
+
+
+@router.get("/samples/{accession}/runs", tags=['SRA'])
+async def runs_by_sample(getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_sample', 'sra_run')
+
+
+@router.get("/experiments/{accession}", tags=['SRA'])
+async def experiment_by_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_experiment')
+
+
+@router.get("/experiments", tags=['SRA'], response_model=ResponseModel)
+async def experiments(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_experiment')
 
 
-@router.get("/runs/search", tags=['SRA', 'Search'], response_model=ResponseModel)
-async def search_runs(
+@router.get("/experiments/{accession}/runs", tags=['SRA'])
+async def runs_by_experiment(
+        getter: GetSubResource = Depends(GetSubResource)):
+    return getter.get('sra_experiment', 'sra_run')
+
+
+@router.get("/runs/{accession}", tags=['SRA'])
+async def run_by_accession(getter: GetByAccession = Depends(GetByAccession)):
+    return getter.get('sra_run')
+
+
+@router.get("/runs", tags=['SRA'], response_model=ResponseModel)
+async def runs(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('sra_run')
 
 
-@router.get("/samples/search", tags=['SRA', 'Search'], response_model=ResponseModel)
-async def search_samples(
-        searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
-    return searcher.search('sra_sample')
 
 

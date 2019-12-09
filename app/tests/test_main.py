@@ -23,16 +23,16 @@ def _get_accession(entity, accession):
     
     
 def test_get_study_accession():
-    _get_accession("study", "SRP006387")
+    _get_accession("studies", "SRP006387")
 
 def test_get_run_accession():
-    _get_accession("run", "SRR6077637")
+    _get_accession("runs", "SRR6077637")
 
 def test_get_experiment_accession():
-    _get_accession("experiment", "SRX1602907")
+    _get_accession("experiments", "SRX1602907")
     
 def test_get_sample_accession():
-    _get_accession("sample", "SRS421036")
+    _get_accession("samples", "SRS421036")
 
 
     
