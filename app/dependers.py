@@ -1,6 +1,7 @@
 from fastapi import (Path, Query, HTTPException)
 from typing import (List)
 from .elastic_connection import connections
+from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl import Search
 from .elastic_utils import available_facets_by_index
 
@@ -15,7 +16,7 @@ class GetByAccession():
         try:
             return connections.get_connection().get(
                 index=index, doc_type=doc_type, id=self.accession)['_source']
-        except elasticsearch.exceptions.NotFoundError as e:
+        except NotFoundError as e:
             raise HTTPException(
                 status_code=404,
                 detail=f"Accession {self.accession} not found in index {index}."
@@ -51,7 +52,7 @@ class GetSubResource():
             connections.get_connection().get(index=resource,
                                              doc_type=doc_type,
                                              id=self.accession)['_source']
-        except elasticsearch.exceptions.NotFoundError as e:
+        except NotFoundError as e:
             raise HTTPException(
                 status_code=404,
                 detail=
