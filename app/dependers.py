@@ -95,7 +95,7 @@ class SimpleQueryStringSearch():
             self,
             q: str = Query(None,
                            description="The query, using lucene query syntax",
-                           example="cancer AND published:[2018-01-01 TO *]"),
+                           example="cancer AND osteosarcoma"),
             size: int = Query(10, gte=0, lt=1000, example=10),
             cursor: str = None,
             facets: List[str] = Query(
