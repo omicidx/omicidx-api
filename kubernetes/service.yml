@@ -1,9 +1,9 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: omicidx-api-service
+  name: omicidx-fastapi
 spec:
-  type: LoadBalancer
+  type: NodePort # LoadBalancer
   selector:
     app: omicidx-fastapi
   ports:
