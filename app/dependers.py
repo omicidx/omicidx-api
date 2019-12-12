@@ -65,6 +65,7 @@ class GetSubResource():
                 }
             }
         }))
+        s = s.update_from_dict({"track_total_hits": True})
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
             s = s.extra(
