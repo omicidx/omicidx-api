@@ -25,7 +25,7 @@ class TermFacet(BaseModel):
 
 class ResponseModel(BaseModel):
     hits: List[Hit]
-    facets: Dict[str, TermFacet]
+    facets: List[dict]
     cursor: str = None
     stats: ResponseStats
     success: bool

@@ -97,7 +97,17 @@ class SimpleQueryStringSearch():
                            description="The query, using lucene query syntax",
                            example="cancer AND osteosarcoma"),
             size: int = Query(10, gte=0, lt=1000, example=10),
-            cursor: str = None,
+            cursor: str = Query(None, description = ("The cursor is used to scroll through results. For a query "
+                                                     "with more results than `size`, the result will include `cursor` "
+                                                     "in the result json. Use that value here and re-issue the query. "
+                                                     "The next set or results will be returned. When no more results are "
+                                                     "available, the `cursor` will again be empty in the result json.")),
+            facet_size: int = Query(10, gte=1, lte=1000, example=10,
+                                    description = (
+                                        "The maximum number of records returned for each facet. "
+                                        "This has no effect unless one or more facets are specified."
+                                    )
+            ),
             facets: List[str] = Query(
                 [],
                 description=('A list of strings identifying fields '
@@ -111,6 +121,7 @@ class SimpleQueryStringSearch():
         self.size = size
         self.facets = facets
         self.cursor = cursor
+        self.facet_size = facet_size
 
     def _create_search_after(self, hit):
         """Create a cursor
@@ -126,6 +137,16 @@ class SimpleQueryStringSearch():
         (sort_dict, id) = decode_cursor(cursor_string)
         return (sort_dict, id)
 
+    def _transform_facet_results_to_list(self, facet_results):
+        d = []
+        for fieldname in facet_results.keys():
+            buckets = facet_results[fieldname]['buckets'].copy()
+            facet_results[fieldname].pop( 'buckets')
+            d.append({"field": fieldname,
+                      "results": buckets,
+                      "meta": facet_results[fieldname]})
+        return d
+
     def search(self, index):
         searcher = Search(index=index)
         from .luqum_helper import (get_query_builder, get_query_translation)
@@ -140,7 +161,6 @@ class SimpleQueryStringSearch():
         # s = search.index(index).query('query_string',
         #                               query=self.q)[0:self.size]
         available_facets = available_facets_by_index(index)
-        print(available_facets)
         for agg in self.facets:
             # these update the s object in place
             # as opposed to the query method(s) that
@@ -150,7 +170,8 @@ class SimpleQueryStringSearch():
                 continue
             if not agg.endswith('.keyword'):
                 agg = agg + '.keyword'
-            s.aggs.bucket(agg.replace('.keyword', ''), 'terms', field=agg)
+            s.aggs.bucket(agg.replace('.keyword', ''), 'terms', field=agg,
+                          size=self.facet_size)
 
         s = s.sort({"_id": {"order": "asc"}})
         if (self.cursor is not None):
@@ -165,7 +186,7 @@ class SimpleQueryStringSearch():
 
         return {
             "hits": [res.to_dict() for res in resp],
-            "facets": resp.aggs.to_dict(),
+            "facets": self._transform_facet_results_to_list( resp.aggs.to_dict()),
             "cursor": search_after,
             "stats": {
                 "total": resp.hits.total.value,
