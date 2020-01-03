@@ -74,7 +74,8 @@ async def docs(request: Request):
     render-style="read"
     layout="column"
     show-header="false"
-    server-url="https://api.omicidx.cancerdatasci.org/"
+    theme="dark"
+    allow-server-selection="false"
   > </rapi-doc>
 </body>
 </html>
