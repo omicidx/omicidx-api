@@ -3,7 +3,7 @@ load_dotenv(find_dotenv())
 
 from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
 from pydantic import (BaseModel, ValidationError, validator, Schema)
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, HTMLResponse
 from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
 from starlette.graphql import GraphQLApp
@@ -31,11 +31,15 @@ from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(title='OmicIDX',
               version='0.99',
+              docs_url='/swaggerdoc',
               description="""
+
+
 
 The OmicIDX API documentation is available in two forms:
 
-- [OpenAPI/Swagger Interactive](/docs)
+- [RapiDoc](/docs)
+- [OpenAPI/Swagger Interactive](/swatterdoc)
 - [ReDoc (more readable in some ways)](/redoc)
 
 """)
@@ -53,6 +57,29 @@ app.include_router(biosample.router, prefix='/biosample')
 
 #from .schema.schema import schema
 #app.add_route('/graphql', GraphQLApp(schema=schema))
+
+@app.route('/docs')
+async def docs(request: Request):
+    # See https://mrin9.github.io/RapiDoc/api.html for configuration
+    # details. 
+    content = """<!doctype html> <!-- Important: must specify -->
+<html>
+<head>
+  <meta charset="utf-8"> <!-- Important: rapi-doc uses utf8 charecters -->
+  <script type="module" src="https://unpkg.com/rapidoc/dist/rapidoc-min.js"></script>
+</head>
+<body>
+  <rapi-doc
+    spec-url="https://api.omicidx.cancerdatasci.org/openapi.json"
+    render-style="read"
+    layout="column"
+    show-header="false"
+    server-url="https://api.omicidx.cancerdatasci.org/"
+  > </rapi-doc>
+</body>
+</html>
+"""
+    return HTMLResponse(content=content)
 
 
 # for now, redirect to the docs directly

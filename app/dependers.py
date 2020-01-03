@@ -95,8 +95,8 @@ class SimpleQueryStringSearch():
     def __init__(
             self,
             q: str = Query(None,
-                           description="The query, using lucene query syntax",
-                           example="cancer AND osteosarcoma"),
+                           description="The query, using [lucene query syntax](https://lucene.apache.org/core/3_6_0/queryparsersyntax.html]",
+                           example="cancer"),
             size: int = Query(10, gte=0, lt=1000, example=10),
             cursor: str = Query(None, description = ("The cursor is used to scroll through results. For a query "
                                                      "with more results than `size`, the result will include `cursor` "
@@ -116,7 +116,7 @@ class SimpleQueryStringSearch():
                              'term faceting is used here, meaning '
                              'that fields that are short text and repeated '
                              'across records will be binned and counted.'),
-                example=['center_name'],
+                #example=['center_name'],
             )):
         self.q = q
         self.size = size
@@ -159,6 +159,7 @@ class SimpleQueryStringSearch():
                 "track_total_hits": True,
                 "query": translation
             })
+        print(s.to_dict())
         # s = search.index(index).query('query_string',
         #                               query=self.q)[0:self.size]
         available_facets = available_facets_by_index(index)
