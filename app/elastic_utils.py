@@ -1,7 +1,7 @@
 """Just convenience functions for elasticsearch"""
 from .elastic_connection import connections
 from elasticsearch_dsl import Index
-from typing import Tuple
+from typing import List
 from .field_descriptors import fulltext_fields
 
 def get_mapping_properties(index: str) -> dict:
@@ -24,42 +24,44 @@ def get_mapping_properties(index: str) -> dict:
 
 def flatten_mapping(mapping, parent=None, nested=False):
     """flatten full mapping down to dotted names"""
-    ret = {}
+    ret = []
     for k, v in mapping.items():
         # created dotted fields recursively
         if(parent is not None):
             k = parent + '.' + k
         # set up ret object
-        ret[k] = {}
+        obj= {}
+        obj['field']=k
 
         # nested will be true for truly nested fields
         # TODO: may need to add path for the nesting to
         # simplify downstream use
-        ret[k]['nested'] = nested
+        obj['nested'] = nested
         if(nested):
-            ret[k]['path'] = parent
+            obj['path'] = parent
 
         # this is either nested or regular field
         if('type' in v):
             # deal with nested fields
             if(v['type']=='nested'):
-                ret[k]['type']='object'
+                obj['type']='object'
                 # recursively follow nested objects
-                ret.update(flatten_mapping(v['properties'], parent=k, nested=True))
+                ret+=flatten_mapping(v['properties'], parent=k, nested=True)
             # deal with "regular fields"
             else:
-                ret[k]['type']=v['type']
+                obj['type']=v['type']
                 # look for fields (such as keyword, etc.)
                 if('fields' in v):
                     # if keyword, add as a boolean flag
                     # to mark for term searches and aggs
                     if('keyword' in v['fields']):
-                        ret[k]['keyword']=True
+                        obj['keyword']=True
+                ret+=[obj]
         # Just an embedded object
         else:
-            ret[k]['type']='object'
+            obj['type']='object'
             # recursively follow embedded objects
-            ret.update(flatten_mapping(v['properties'], parent=k))
+            ret+=flatten_mapping(v['properties'], parent=k)
     return(ret)
 
 
@@ -71,7 +73,7 @@ def available_facets_by_index(index):
 
     available_fields = get_flattened_mapping_from_index(index)
 
-    def should_be_facet_field(field: Tuple[str, dict]):
+    def should_be_facet_field(field: dict):
         """Use as filter for fields to find available facet fields
 
         Parameters
@@ -85,18 +87,17 @@ def available_facets_by_index(index):
         bool
             True if to include field as aggregatable, False otherwise
         """
-        k, v = field  # unpack tuple
 
         # right now, only keyword fields (of type text) qualify
-        if not (v['type'] == 'text' and v['keyword']):
+        if not (field['type'] == 'text' and field['keyword']):
             return False
         # filter out known full text fields
         # TODO: these should be changed in the elasticsearch mappings
         for ftf in fulltext_fields:
-            if (k.endswith(ftf)):
+            if (field['field'].endswith(ftf)):
                 return False
         return True
 
-    facets = dict(filter(should_be_facet_field, available_fields.items()))
-    facet_names = list(facets.keys())
+    facet_fields = filter(should_be_facet_field, available_fields)
+    facet_names = list([f['field'] for f in facet_fields])
     return facet_names
