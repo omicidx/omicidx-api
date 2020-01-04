@@ -7,3 +7,5 @@ kubernetes
 __pycache__
 *.egg-info
 .venv
+docs
+notebooks
