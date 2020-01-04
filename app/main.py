@@ -352,7 +352,7 @@ def abc(mappings):
 def mapping(entity: str) -> dict:
     if(entity!="biosample"):
         return get_flattened_mapping_from_index('sra_' + entity)
-    return get_flattened_mapping_from_index(biosample)
+    return get_flattened_mapping_from_index('biosample')
 
 # TODO: this is now duplicated in elastic_utils--need to refactor
 @app.get("/facets/{index}", response_model=List[str])
