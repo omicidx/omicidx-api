@@ -4,3 +4,6 @@ kubernetes
 *.ipynb
 .git
 .env
+__pycache__
+*.egg-info
+.venv
