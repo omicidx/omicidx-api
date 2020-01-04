@@ -16,6 +16,7 @@ from .field_descriptors import fulltext_fields
 from .elastic_connection import connections
 from .elastic_utils import (get_mapping_properties,
                             get_flattened_mapping_from_index,
+                            available_facets_by_index
 )
 from .routers import (sra, biosample)
 
@@ -36,7 +37,7 @@ app = FastAPI(title='OmicIDX',
 
 
 
-The OmicIDX API documentation is available in two forms:
+The OmicIDX API documentation is available in three forms:
 
 - [RapiDoc](/docs)
 - [OpenAPI/Swagger Interactive](/swatterdoc)
@@ -356,37 +357,6 @@ def mapping(entity: str) -> dict:
 
 # TODO: this is now duplicated in elastic_utils--need to refactor
 @app.get("/facets/{index}", response_model=List[str])
-def available_facets_by_index(index):
+def facets_by_index(index):
     """Return the available facet fields for an index"""
-
-    available_fields = get_flattened_mapping_from_index(index)
-
-    def should_be_facet_field(field: Tuple[str, dict]):
-        """Use as filter for fields to find available facet fields
-
-        Parameters
-        ----------
-        field: Tuple[str, dict]
-            first field is name of field and the dict describes the
-            type, etc.
-        
-        Returns
-        -------
-        bool
-            True if to include field as aggregatable, False otherwise
-        """
-        k, v = field  # unpack tuple
-
-        # right now, only keyword fields (of type text) qualify
-        if not (v['type'] == 'text' and v['keyword']):
-            return False
-        # filter out known full text fields
-        # TODO: these should be changed in the elasticsearch mappings
-        for ftf in fulltext_fields:
-            if (k.endswith(ftf)):
-                return False
-        return True
-
-    facets = dict(filter(should_be_facet_field, available_fields.items()))
-    facet_names = list(facets.keys())
-    return facet_names
+    return available_facets_by_index(index)

@@ -56,6 +56,15 @@ def flatten_mapping(mapping, parent=None, nested=False):
                     # to mark for term searches and aggs
                     if('keyword' in v['fields']):
                         obj['keyword']=True
+                # No subfields in field
+                else:
+                    # If a regular field of type keyword
+                    if(obj['type']=='keyword'):
+                        obj['keyword']=True
+                    # Not a keyword field
+                    else:
+                        obj['keyword']=False
+
                 ret+=[obj]
         # Just an embedded object
         else:
