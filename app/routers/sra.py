@@ -49,13 +49,13 @@ async def samples(
 
 
 @router.get("/samples/{accession}/experiments", tags=['SRA'])
-async def experiments_by_sample(
+async def experiments_for_sample(
         getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_sample', 'sra_experiment')
 
 
 @router.get("/samples/{accession}/runs", tags=['SRA'])
-async def runs_by_sample(getter: GetSubResource = Depends(GetSubResource)):
+async def runs_for_sample(getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_sample', 'sra_run')
 
 
@@ -71,7 +71,7 @@ async def experiments(
 
 
 @router.get("/experiments/{accession}/runs", tags=['SRA'])
-async def runs_by_experiment(
+async def runs_for_experiment(
         getter: GetSubResource = Depends(GetSubResource)):
     return getter.get('sra_experiment', 'sra_run')
 
