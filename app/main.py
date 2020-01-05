@@ -75,7 +75,6 @@ async def docs(request: Request):
     render-style="read"
     layout="column"
     show-header="false"
-    theme="dark"
     allow-server-selection="false"
   > </rapi-doc>
 </body>
@@ -338,17 +337,6 @@ def mappings(x):
 #     return body.do_search('sra_run')
 
 
-def abc(mappings):
-    fields = []
-    for k, v in mappings.items():
-        keyword = False
-        if ('fields' in v):
-            if ('keyword' in v['fields']):
-                keyword = True
-        fields.append((k, v['type'], keyword))
-    return fields
-
-
 @app.get("/_mapping/{entity}")
 def mapping(entity: str) -> dict:
     if(entity!="biosample"):
@@ -356,7 +344,11 @@ def mapping(entity: str) -> dict:
     return get_flattened_mapping_from_index('biosample')
 
 # TODO: this is now duplicated in elastic_utils--need to refactor
-@app.get("/facets/{index}", response_model=List[str])
-def facets_by_index(index):
-    """Return the available facet fields for an index"""
-    return available_facets_by_index(index)
+@app.get("/facets/{entity}", response_model=List[str])
+def facets_by_index(entity):
+    """Return the available facet fields for an entity"""
+    index = "sra_" + entity
+    if(entity!="biosample"):
+        return available_facets_by_index(index)
+    else:
+        return available_facets_by_index(entity)
