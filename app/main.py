@@ -71,7 +71,7 @@ async def docs(request: Request):
 </head>
 <body>
   <rapi-doc
-    spec-url="https://api.omicidx.cancerdatasci.org/openapi.json"
+    spec-url="/openapi.json"
     render-style="read"
     layout="column"
     show-header="false"
