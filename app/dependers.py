@@ -9,13 +9,32 @@ from .elastic_utils import available_facets_by_index
 class GetByAccession():
     def __init__(self,
                  accession: str = Path(...,
-                                       description="An accession for lookup")):
+                                       description="An accession for lookup"),
+                 
+                 include_fields: List[str] = Query([], description = ("Fields to include in results. The default is to "
+                                                                      "all fields (*)"),
+                                                   example = ['*']),
+                 
+                 exclude_fields: List[str] =  Query([], description = ("Fields to exclude from results. The default is to "
+                                                                       "not exclude any fields. ")),
+
+    ):
         self.accession = accession
+        self.include_fields = include_fields
+        self.exclude_fields = exclude_fields
+        if(len(include_fields)==0):
+            self.include_fields = ['*']
+
 
     def get(self, index, doc_type="_doc"):
         try:
             return connections.get_connection().get(
-                index=index, doc_type=doc_type, id=self.accession)['_source']
+                index=index,
+                doc_type=doc_type,
+                id=self.accession,
+                _source_includes = self.include_fields,
+                _source_excludes = self.exclude_fields
+            )['_source']
         except NotFoundError as e:
             raise HTTPException(
                 status_code=404,
@@ -27,11 +46,23 @@ class GetSubResource():
     def __init__(self,
                  accession: str = Path(...,
                                        description="An accession for lookup"),
+                 include_fields: List[str] = Query([], description = ("Fields to include in results. The default is to "
+                                                                      "all fields (*)"),
+                                                   example = ['*']),
+                 
+                 exclude_fields: List[str] =  Query([], description = ("Fields to exclude from results. The default is to "
+                                                                       "not exclude any fields. ")),
+                 
                  size: int = Query(10, gte=0, lt=1000, example=10),
                  cursor: str = None):
         self.accession = accession
         self.size = size
         self.cursor = cursor
+        self.include_fields = include_fields
+        self.exclude_fields = exclude_fields
+        if(len(include_fields)==0):
+            self.include_fields = ['*']
+
 
     def _create_search_after(self, hit):
         """Create a cursor
@@ -70,7 +101,7 @@ class GetSubResource():
         if (self.cursor is not None):
             s = s.extra(
                 search_after=[self._resolve_search_after(self.cursor)[1]])
-        print(s.to_dict())
+        s = s.extra(_source = {"include": self.include_fields, "exclude": self.exclude_fields})
         resp = s[0:self.size].execute()
         hits = list([res for res in resp])
         # cursor
@@ -97,18 +128,29 @@ class SimpleQueryStringSearch():
             q: str = Query(None,
                            description="The query, using [lucene query syntax](https://lucene.apache.org/core/3_6_0/queryparsersyntax.html]",
                            example="cancer"),
+            
             size: int = Query(10, gte=0, lt=1000, example=10),
+
             cursor: str = Query(None, description = ("The cursor is used to scroll through results. For a query "
                                                      "with more results than `size`, the result will include `cursor` "
                                                      "in the result json. Use that value here and re-issue the query. "
                                                      "The next set or results will be returned. When no more results are "
                                                      "available, the `cursor` will again be empty in the result json.")),
+            
             facet_size: int = Query(10, gte=1, lte=1000, example=10,
                                     description = (
                                         "The maximum number of records returned for each facet. "
                                         "This has no effect unless one or more facets are specified."
                                     )
             ),
+            
+            include_fields: List[str] = Query([], description = ("Fields to include in results. The default is to "
+                                                      "all fields (*)"),
+                                   example = ['*']),
+
+            exclude_fields: List[str] =  Query([], description = ("Fields to exclude from results. The default is to "
+                                                      "not exclude any fields. ")),
+            
             facets: List[str] = Query(
                 [],
                 description=('A list of strings identifying fields '
@@ -120,6 +162,10 @@ class SimpleQueryStringSearch():
             )):
         self.q = q
         self.size = size
+        self.include_fields = include_fields
+        self.exclude_fields = exclude_fields
+        if(len(include_fields)==0):
+            self.include_fields = ['*']
         self.facets = facets
         self.cursor = cursor
         self.facet_size = facet_size
@@ -159,7 +205,6 @@ class SimpleQueryStringSearch():
                 "track_total_hits": True,
                 "query": translation
             })
-        print(s.to_dict())
         # s = search.index(index).query('query_string',
         #                               query=self.q)[0:self.size]
         available_facets = available_facets_by_index(index)
@@ -179,6 +224,7 @@ class SimpleQueryStringSearch():
         if (self.cursor is not None):
             s = s.extra(
                 search_after=[self._resolve_search_after(self.cursor)[1]])
+        s = s.extra(_source = {"include": self.include_fields, "exclude": self.exclude_fields})
         resp = s[0:self.size].execute()
         hits = list([res for res in resp])
         # cursor
