@@ -19,7 +19,6 @@ The `con` is now a basic elasticsearch client.
 """
 import elasticsearch_dsl
 import os
-import configparser
 import certifi
 import elasticsearch_dsl.connections as connections
 
@@ -29,10 +28,9 @@ from typing import List
 from .configuration import config
 
 def init_connection_object():
-    es_config = config['elasticsearch']
     connections.create_connection(
         alias='default',
-        hosts=es_config['nodes']
+        hosts=config.ELASTICSEARCH_NODES
     )
 
 init_connection_object()
@@ -51,7 +49,7 @@ def main():
     ....
     >>> con = connections.get_connection()
     >>> con
-    <Elasticsearch([{'host': '45e419eb0aef4f3d92cc7b6e5d1dc345.us-east-1.aws.found.io', 'port': 9243, 'use_ssl': True, 'http_auth': 'omicidx:this2112'}])>
+    <Elasticsearch([{'host': '45e419eb0aef4f3d92cc7bdc345.us-east-1.aws.found.io', 'port': 9243, 'use_ssl': True, 'http_auth': 'USERNAME:PASSWORD'}])>
     """
     
     from IPython import embed

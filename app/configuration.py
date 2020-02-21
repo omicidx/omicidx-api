@@ -1,48 +1,35 @@
 """Configuration
 
-"OMICIDX_CONFIGURATION_FILE" contains the path to a configuration file in toml format.
+Environment variables:
 
-Example
+
 
 ```
-[google]
-project = "isb-cgc-01-0006"
-
-[google.bigquery]
-dataset = "omicidx"
-etl_dataset = "omicidx_etl"
-
-[elasticsearch]
-nodes = "https://USER:PASSWORD@45e419eb0aef4f3d92cc7b6e5d1dc345.us-east-1.aws.found.io:9243"
-
-[google.storage]
-staging = "gs://temp-testing/abc/"
-export = "gs://omicidx-cancerdatasci-org/exports/"
+self.BIGQUERY_PRODUCTION_DATASET = os.getenv('BIGQUERY_PRODUCTION_DATASET')
+self.BIGQUERY_ETL_DATASET = os.getenv('BIGQUERY_ETL_DATASET')
+self.ELASTICSEARCH_NODES = os.getenv('ELASTICSEARCH_NODES')
+self.GCS_STAGING_BUCKET =  os.getenv['GCS_STAGING_BUCKET'] 
+self.GCS_PUBLIC_BUCKET =  os.getenv['GCS_PUBLIC_BUCKET']
 ```
 
+Example ELASTICSEARCH_NODES:
+
+"https://USER:PASSWORD@45e419eb0aef4f3d92cc7b6e5d1dc345.us-east-1.aws.found.io:9243"
+
+Example GCS_PUBLIC_BUCKET
+
+"gs://temp-testing/abc/"
 """
-
-import toml
 import os
 
-def get_configfile_location():
-    """Get toml config file location
-
-    Assumes that an environment variable, "OMICIDX_CONFIGURATION_FILE"
-    contains the path to a configuration file in toml format
-
-    Returns:
-    str
-    """
-    return os.environ.get('OMICIDX_CONFIGURATION_FILE', 'config.toml')
-
-class Config(dict):
-    def __init__(self, configfile: str = None):
-
-        configfile_location = configfile
-        if(configfile is None):
-            configfile_location = get_configfile_location()
-
-        self.update(toml.load(configfile_location))
+class Config(object):
+    def __init__(self):
+        self.ELASTICSEARCH_NODES = os.getenv('ELASTICSEARCH_NODES')
+        # Everything below here unused!!!
+        # TODO: decide if these are worth keeping....
+        self.BIGQUERY_ETL_DATASET = os.getenv('BIGQUERY_ETL_DATASET')
+        self.BIGQUERY_PRODUCTION_DATASET = os.getenv('BIGQUERY_PRODUCTION_DATASET')
+        self.GCS_STAGING_BUCKET =  os.getenv('GCS_STAGING_BUCKET')
+        self.GCS_PUBLIC_BUCKET =  os.getenv('GCS_PUBLIC_BUCKET')
 
 config = Config()
