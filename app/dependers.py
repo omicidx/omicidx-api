@@ -126,7 +126,7 @@ class SimpleQueryStringSearch():
     def __init__(
             self,
             q: str = Query(None,
-                           description="The query, using [lucene query syntax](https://lucene.apache.org/core/3_6_0/queryparsersyntax.html]",
+                           description="The query, using [lucene query syntax](https://lucene.apache.org/core/3_6_0/queryparsersyntax.html)",
                            example="cancer"),
             
             size: int = Query(10, gte=0, lt=1000, example=10),
@@ -225,6 +225,7 @@ class SimpleQueryStringSearch():
             s = s.extra(
                 search_after=[self._resolve_search_after(self.cursor)[1]])
         s = s.extra(_source = {"include": self.include_fields, "exclude": self.exclude_fields})
+        print(s.to_dict())
         resp = s[0:self.size].execute()
         hits = list([res for res in resp])
         # cursor
