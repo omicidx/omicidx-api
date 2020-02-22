@@ -25,7 +25,7 @@ import elasticsearch_dsl.connections as connections
 from elasticsearch import Elasticsearch
 from typing import List
 
-from .configuration import config
+from .core.configuration import config
 
 def init_connection_object():
     connections.create_connection(
