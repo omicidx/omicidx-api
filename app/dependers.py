@@ -1,9 +1,9 @@
 from fastapi import (Path, Query, HTTPException)
 from typing import (List)
-from .elastic_connection import connections
+from app.elasticsearch.connection import connections
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl import Search
-from .elastic_utils import available_facets_by_index
+from app.elasticsearch.utils import available_facets_by_index
 
 
 class GetByAccession():

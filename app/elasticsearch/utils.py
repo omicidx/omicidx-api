@@ -1,8 +1,10 @@
 """Just convenience functions for elasticsearch"""
-from .elastic_connection import connections
-from elasticsearch_dsl import Index
+
+from elasticsearch_dsl import (Document, Index, Mapping)
 from typing import List
-from .field_descriptors import fulltext_fields
+
+from app.elasticsearch.connection import connections
+from app.elasticsearch.field_descriptors import fulltext_fields
 
 def get_mapping_properties(index: str) -> dict:
     """Get the "properties" mappings from an elasticsearch index
@@ -77,17 +79,17 @@ def flatten_mapping(mapping, parent=None, nested=False):
 def get_flattened_mapping_from_index(index):
     return flatten_mapping(get_mapping_properties(index))
 
-def available_facets_by_index(index):
+def available_facets_by_index(index) -> List[str]:
     """Return the available facet fields for an index"""
 
     available_fields = get_flattened_mapping_from_index(index)
 
-    def should_be_facet_field(field: dict):
+    def should_be_facet_field(field: dict) -> bool:
         """Use as filter for fields to find available facet fields
 
         Parameters
         ----------
-        field: Tuple[str, dict]
+        field: dict
             first field is name of field and the dict describes the
             type, etc.
         
@@ -110,3 +112,37 @@ def available_facets_by_index(index):
     facet_fields = filter(should_be_facet_field, available_fields)
     facet_names = list([f['field'] for f in facet_fields])
     return facet_names
+
+
+# TODO: NOT USED RIGHT NOW....
+def create_document_from_es_index(name: str, index: str, using: str = 'default'):
+    """Create an elasticsearch_dsl Document
+
+    Before using this function, it is necessary to create a connection
+    on the elasticsearch_dsl global connections object. Afterwards,
+    calling this function will create and return an elasticsearch_dsl.Document
+    populated with a mapping from the pre-existing index in elasticsearch.
+
+    Parameters
+    ----------
+    name: str
+        The string name for the resulting class
+    index: str
+        The string name for the elasticsearch index
+    using: str
+        The connection name to use (assumes that this exists or was 
+        already created. Defaults to 'default'.
+
+    Return
+    ------
+    An `elasticsearch_dsl.Document` with type `name` based on existing
+    elasticsearch index, `index`.
+    """
+    class LocalMeta:
+        mapping = elasticsearch_dsl.Mapping.from_es(index, using = using)
+    class LocalIndex:
+        name = index
+    document = type(name, (Document,), {"Meta": LocalMeta,
+                                        "Index": LocalIndex})
+
+    return document

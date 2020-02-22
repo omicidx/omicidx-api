@@ -11,23 +11,22 @@ from typing import (Dict, List, Any, Tuple)
 from elasticsearch_dsl import Search, Index
 import elasticsearch
 
-from .response_models import (ResponseModel, MappingResults)
-from .field_descriptors import fulltext_fields
-from .elastic_connection import connections
-from .elastic_utils import (get_mapping_properties,
-                            get_flattened_mapping_from_index,
-                            available_facets_by_index
-)
-from .routers import (sra, biosample)
+from app.response_models import (ResponseModel, MappingResults)
+from app.elasticsearch.field_descriptors import fulltext_fields
+from app.elasticsearch.connection import connections
+from app.elasticsearch.utils import (get_mapping_properties,
+                                     get_flattened_mapping_from_index,
+                                     available_facets_by_index)
+from app.api_v1.api import api_router
 
 import logging
-
 
 #from .schema import schema
 
 # REST API models
 import omicidx.sra.pydantic_models as p
-from .dependers import (GetByAccession, GetSubResource, SimpleQueryStringSearch)
+from .dependers import (GetByAccession, GetSubResource,
+                        SimpleQueryStringSearch)
 from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(title='OmicIDX',
@@ -53,16 +52,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(sra.router, prefix='/sra')
-app.include_router(biosample.router, prefix='/biosample')
+app.include_router(api_router)
 
 #from .schema.schema import schema
 #app.add_route('/graphql', GraphQLApp(schema=schema))
 
+
 @app.route('/docs')
 async def docs(request: Request):
     # See https://mrin9.github.io/RapiDoc/api.html for configuration
-    # details. 
+    # details.
     content = """<!doctype html> <!-- Important: must specify -->
 <html>
 <head>
@@ -87,9 +86,6 @@ async def docs(request: Request):
 @app.route("/")
 async def home(request: Request):
     return RedirectResponse(url='/docs')
-
-
-
 
 
 from pydantic import Schema, create_model
@@ -150,7 +146,6 @@ def mappings(x):
 # async def get_experiment_accession(
 #         getter: GetByAccession = Depends(GetByAccession)):
 #     return getter.get('sra_experiment')
-
 
 # @app.get("/sql", tags=["SQL"])
 # async def elasticsearch_sql(
@@ -337,18 +332,12 @@ def mappings(x):
 #     return body.do_search('sra_run')
 
 
-@app.get("/_mapping/{entity}")
-def mapping(entity: str) -> dict:
-    if(entity!="biosample"):
-        return get_flattened_mapping_from_index('sra_' + entity)
-    return get_flattened_mapping_from_index('biosample')
-
 # TODO: this is now duplicated in elastic_utils--need to refactor
 @app.get("/facets/{entity}", response_model=List[str])
 def facets_by_index(entity):
     """Return the available facet fields for an entity"""
     index = "sra_" + entity
-    if(entity!="biosample"):
+    if (entity != "biosample"):
         return available_facets_by_index(index)
     else:
         return available_facets_by_index(entity)
