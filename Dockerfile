@@ -14,8 +14,9 @@ RUN rm -rf /root/.ssh
 
 ENV OMICIDX_CONFIGURATION_FILE=/etc/omicidx/omicidx-config.toml
 
-EXPOSE 80
+ENV PORT=80
+EXPOSE $PORT
 
 COPY . .
 
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port 80
+CMD exec uvicorn  --host 0.0.0.0 --port $PORT app.main:app
