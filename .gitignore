@@ -68,3 +68,4 @@ target/
 .env
 .openapi*
 .venv
+..bfg-report
