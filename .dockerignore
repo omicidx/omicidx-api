@@ -1,11 +1,12 @@
 virt-dev
 virt
 kubernetes
-*.ipynb
+**/*.ipynb
 .git
 .env
-__pycache__
+**/__pycache__
 *.egg-info
 .venv
 docs
 notebooks
+src/frontend
