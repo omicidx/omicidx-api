@@ -39,10 +39,10 @@ app = FastAPI(title='OmicIDX',
 The OmicIDX API documentation is available in three forms:
 
 - [RapiDoc](/docs)
-- [OpenAPI/Swagger Interactive](/swatterdoc)
+- [OpenAPI/Swagger Interactive](/swaggerdoc)
 - [ReDoc (more readable in some ways)](/redoc)
 
-""")
+""", servers = {"url":'https://api.omicidx.cancerdatasci.org'})
 
 # CORS
 app.add_middleware(

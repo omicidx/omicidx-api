@@ -17,14 +17,14 @@ def mapping(entity: str) -> dict:
     #return get_flattened_mapping_from_index('sra_' + entity_string)
     return get_flattened_mapping_from_index('biosample')
 
-@router.get("/samples", tags=['Biosample'], response_model=ResponseModel)
+@router.get("/samples", response_model=ResponseModel)
 async def biosamples(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('biosample')
 
 
 # TODO: implement biosample pydandic model
-@router.get("/samples/{accession}", tags=['Biosample'])
+@router.get("/samples/{accession}")
 async def biosample_by_accession(
         getter: GetByAccession = Depends(GetByAccession)):
     return getter.get('biosample')
