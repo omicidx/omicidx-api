@@ -1,36 +1,25 @@
 from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv())
-
-from fastapi import (FastAPI, HTTPException, Query, Depends, Path)
-from pydantic import (BaseModel, ValidationError, validator, Schema)
+from fastapi import FastAPI
 from starlette.responses import RedirectResponse, HTMLResponse
-from starlette.endpoints import HTTPEndpoint
 from starlette.requests import Request
-from starlette.graphql import GraphQLApp
-from typing import (Dict, List, Any, Tuple)
-from elasticsearch_dsl import Search, Index
-import elasticsearch
+from typing import List
+# REST API models
+from starlette.middleware.cors import CORSMiddleware
+# from starlette.templating import Jinja2Templates
 
-from app.response_models import (ResponseModel, MappingResults)
-from app.elasticsearch.field_descriptors import fulltext_fields
+
 from app.elasticsearch.connection import connections
 from app.elasticsearch.utils import (get_mapping_properties,
-                                     get_flattened_mapping_from_index,
                                      available_facets_by_index)
 from app.api_v1.api import api_router
 
 import logging
 
-#from .schema import schema
-
-# REST API models
-import omicidx.sra.pydantic_models as p
-from .dependers import (GetByAccession, GetSubResource,
-                        SimpleQueryStringSearch)
-from starlette.middleware.cors import CORSMiddleware
+load_dotenv(find_dotenv())
+# from .schema import schema
 
 app = FastAPI(title='OmicIDX',
-              version='0.99',
+              version='0.99.1',
               docs_url='/swaggerdoc',
               description="""
 
@@ -42,7 +31,7 @@ The OmicIDX API documentation is available in three forms:
 - [OpenAPI/Swagger Interactive](/swaggerdoc)
 - [ReDoc (more readable in some ways)](/redoc)
 
-""", servers = {"url":'https://api.omicidx.cancerdatasci.org'})
+""", servers={"url": 'https://api.omicidx.cancerdatasci.org'})
 
 # CORS
 app.add_middleware(
@@ -54,9 +43,19 @@ app.add_middleware(
 )
 app.include_router(api_router)
 
-#from .schema.schema import schema
-#app.add_route('/graphql', GraphQLApp(schema=schema))
+# from .schema.schema import schema
+# app.add_route('/graphql', GraphQLApp(schema=schema))
 
+
+@app.route('/portal/sra/studies/{accession:str}')
+async def study_by_accession(request: Request):
+    accession = request.path_params['accession']
+    res = connections.get_connection().get(
+        index='sra_study',
+        doc_type='_doc',
+        id=accession
+    )['_source']
+    return HTMLResponse(str(res))
 
 @app.route('/docs')
 async def docs(request: Request):

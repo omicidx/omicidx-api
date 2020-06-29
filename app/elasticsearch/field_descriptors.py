@@ -6,7 +6,7 @@ fulltext_fields = [
     "library_construction_protocol",
     "library_name",
     "alias",
-    "attributes.value",
+    # "attributes.value", # trying this
     "identifiers.id",
     # not full test but not aggregatable
     "BioSample",

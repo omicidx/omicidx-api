@@ -70,9 +70,3 @@ async def search_samples(
         searcher: SimpleQueryStringSearch = Depends(SimpleQueryStringSearch)):
     return searcher.search('geo_gsm')
 
-
-
-
-
-
-

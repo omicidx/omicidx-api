@@ -4,7 +4,7 @@ from app.elasticsearch.connection import connections
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl import Search
 from app.elasticsearch.utils import available_facets_by_index
-
+import logging
 
 class GetByAccession():
     def __init__(self,
