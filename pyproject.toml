@@ -17,7 +17,7 @@ email-validator = "^1.0.4"
 pyparsing = "^2.4"
 toml = "^0.10.0"
 python-dotenv = "^0.10.3"
-luqum = "^0.8.1"
+luqum = "0.9.0"
 uvicorn = "^0.9.0"
 
 [tool.poetry.dev-dependencies]
